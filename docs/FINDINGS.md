@@ -118,7 +118,11 @@ role the Dig Dug user's own gameplay hints played in that project:
   checkable claim: find the score-add call(s) for a bonus-stage kill, and
   see whether the awarded value is read from a small table indexed by
   wave number (or a wave-derived quantity), the same shape Dig Dug's
-  veggie-value table turned out to have.
+  veggie-value table turned out to have. **RESOLVED -- see "The wave-36
+  hint, solved" below.** Not wave-indexed at all: a cyclical gate keyed
+  to a completed-challenge-stage counter, and the "drop" the user saw is
+  the first low point of a repeating 32-wave cycle, not a permanent
+  change.
 * **The tractor-beam capture mechanic has a real branch the manual's own
   summary glosses over.** Destroying the capturing flagship while it's
   still in *formation* (not actively diving) does NOT rescue the
@@ -336,15 +340,65 @@ was chosen without independently verifying the file's real length first
 actually being that short, especially if the game can keep running
 without further recorded input.
 
+## The wave-36 hint, solved: a cyclical gate, not a one-time change
+
+Went after this directly rather than waiting for another recording: found
+the actual challenge-stage scheduler (`rom:9DD8`) by tracing `ram_0061`
+(the challenge-active flag `rom:D021` gates on) back to every place that
+sets or clears it, and found the score-value gate (`rom:sub_D097`) by
+tracing forward from the packed-BCD score accumulator (`rom:93E0`) to
+every place that stages a value for it.
+
+**What schedules a challenge wave** (also closes an item that was open
+since the countdown-timer pass): `rom:9DD8` runs once per wave, at the
+same single-tick gate as everything else in this area
+(`ChallengeCountdown` reading exactly `$60`), and tests `Wave mod 4 == 2`
+via repeated subtraction. If true, it sets `ram_0061` and this wave is a
+challenge stage. Live-checked against the full recording
+(`tools/probe-groupvalue.lua`): challenge stages fire at wave 26, 30, and
+34 in the 80,000-104,454 frame range with no exceptions -- exactly the
+predicted schedule.
+
+**What sets the per-group point value:** each challenge stage awards a
+bonus every 8 kills (`ChallengeHitCountBin` wrapping 7->0). The amount is
+gated by a new byte, `ram_005A` (`ChallengeValueCycle`): incremented once
+per *completed* challenge stage at `rom:9DD8`, wrapping back to 0 at 8.
+`rom:sub_D097` reads it: if `ChallengeValueCycle >= 4`, it forces a clean
+`+1,600` (writes a fixed `$0160` into the score-accumulator staging
+bytes, overwriting whatever was there); if `< 4`, it stages `+1,000` but
+-- asymmetrically -- doesn't clear the low staging byte first, so
+whatever that specific 8th kill's own per-kill point value already was
+(50/80/100/160, depending on enemy type, set moments earlier the same
+frame at `rom:D053`-`rom:D08F`) rides along on top of the 1,000.
+
+Since `ChallengeValueCycle` cycles 0-7 across 8 consecutive challenge
+stages (32 waves, one stage per 4 waves), stages land in the **low half
+for roughly waves 2-14 of every 32-wave block, and the high half for
+roughly waves 18-30**, then drop straight back to the low half at the
+next block's first stage. Live-verified with
+`tools/probe-groupdelta.lua`, capturing the exact score digits
+immediately before and after each group-of-8 bonus: the wave-30 stage
+(`ChallengeValueCycle`=7) shows two clean `+1,600` jumps; the cycle then
+wraps to 0, and the very next stage -- **wave 34** -- shows `+1,160` and
+`+1,100` (1,000 plus that group's own 8th-kill value, matching the
+asymmetric-code prediction exactly). Wave 34 is the stage that leaves the
+on-screen wave counter reading **36** once it finishes -- matching "around
+wave 36" almost exactly.
+
+**This is a better answer than the question implied.** The user's hint
+described the point drop as something that happened once, around wave
+36. It isn't a one-time change at all -- it's a repeating 32-wave cycle,
+and wave 34 just happens to be the *first* low-half stage the recording
+reaches. If play had continued, the value should climb back to a flat
+`+1,600` again around wave 50 (the next time the cycle reaches 4) --
+not checked live, since `run-01.inp` ends at wave 36.
+
 ## What's still open
 
-* **The original wave-36, 1600->1000-point-value hint -- now directly
-  testable and the natural next target.** With the real score digits, the
-  real wave counter, and the real 104,454-frame range all confirmed, a
-  probe that watches the bonus-stage score-add routine specifically
-  around the point `ram_0042`/`ram_0043` cross into the low-to-mid 30s
-  can check the user's report directly, rather than inferring it from a
-  table shape the way the first pass here assumed.
+* Whether the value really does climb back to 1,600 around wave 50, as
+  the cyclical-gate theory predicts -- untestable against this recording
+  (it ends at wave 36), the natural target for a second recording that
+  reaches further.
 * Whether `ChallengeHitCount`'s single observed excursion (frames
   ~29,000-30,500 in the original, truncated probe) is the only
   challenge-stage attempt in the recording, or just the first one caught
@@ -358,9 +412,6 @@ without further recorded input.
   an open identification.
 * What `ram_2724`-`ram_2726` actually represents, now that it's confirmed
   not to be the score -- still live-active every frame, still unexplained.
-* What determines that a given wave is a challenge wave in the first
-  place -- the countdown-timer window (`ChallengeCountdown`/`ram_0061`)
-  is now mapped, but not what schedules it.
 * Re-checking anything else this project concluded from "the whole
   recording" before the true 104,454-frame length was known (the
   `dat_` block classification pass and the `CHARBASE` search both
