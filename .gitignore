@@ -18,6 +18,8 @@
 *.log
 /snap/
 /snap2/
+/timeline/
+/realtime/
 endgame-zp-*.json
 endgame2-*.json
 

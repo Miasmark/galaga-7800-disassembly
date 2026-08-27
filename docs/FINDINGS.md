@@ -270,25 +270,28 @@ It also *retracts* last pass's `ScoreHi`/`Mid`/`Lo` naming for
 `ram_2724`-`ram_2726`. That accumulator is still real and still fires
 every frame as documented, but it isn't backing the on-screen score --
 tracing the newly-confirmed digit bytes across the *entire* recording
-shows the score never climbing past roughly 111,000, while the earlier
-accumulator's implied value never matched it at any point either. What
+shows the score peaking around 32,000, while the earlier accumulator's
+implied value never matched it at any point either. What
 `ram_2724`-`ram_2726` actually is stays open; the labels were removed
 rather than left wrong.
 
-**The bigger surprise: the wave-36, 200,000+ run the user described does
-not appear to be in `run-01.inp` at all.** Traced the confirmed score
-bytes across the whole recording, start to finish -- the peak is well
-under 111,000, nowhere near 200,000. Screenshots taken ~30 seconds before
-the recording's actual end (per the user's own suggestion, to catch the
-last life lost) show a score around 28,000-32,000 and a small unrelated
-digit (3-5, still unidentified) in the corner, not wave 36. Either that
-specific high-score run happened in a different, uncaptured session, or
-this recording's "longest run" isn't in the final segment the way it was
-assumed to be. Flagging this plainly rather than continuing to search
-this recording for a moment that may not be in it -- a fresh, shorter
-recording captured right around that specific run (if reproducible)
-would settle the wave-number question far faster than more analysis of
-this one.
+**The wave-36, 200,000+ run the user described genuinely isn't in
+`run-01.inp` -- resolved, not a bug.** Traced the confirmed score bytes
+across the whole recording (peak ~32,000, nowhere near 200,000), checked
+with a 17-point screenshot sweep across the entire file, and -- when the
+user reasonably asked whether MAME's `-nothrottle` acceleration could be
+desyncing the accelerated headless runs from what they saw watching it --
+re-ran the identical file in real time (no acceleration, windowed, full
+audio, matching `Play Recording.command`'s own invocation) and got
+byte-for-byte identical values at every sampled frame. That ruled out
+desync cleanly: MAME's playback is genuinely deterministic here regardless
+of speed. The actual explanation, confirmed by the user afterward: this
+recording simply isn't the full session -- it stops well short of the
+wave-36 moment, which was never captured to this file. The data in this
+file stays valid for what it covers (waves roughly 1-4, scores up to
+~32,000); it just isn't evidence that higher waves don't exist. A
+recording that actually reaches that point is the fastest remaining path
+to the real wave-number byte.
 
 ## What's still open
 
