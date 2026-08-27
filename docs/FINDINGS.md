@@ -492,7 +492,7 @@ specifically *arms* the returning-captive sequence, as opposed to
 completing it at `rom:92B3`. See the next section for how that closed,
 and for a real surprise in what the answer turned out to be.
 
-## `run-02.inp`: a second, targeted recording closes the last open piece -- and it isn't what this project guessed
+## `run-02.inp`: a second, targeted recording -- first pass wrong, corrected after the user caught it
 
 The user made a short follow-up recording (~4 waves, confirmed at
 10,330 frames via the same length-check discipline as `run-01.inp`,
@@ -503,41 +503,67 @@ Tapping the whole known state chain across this much shorter file
 (`tools/probe-run02.lua`: `CaptureAttemptTimer`, `CapturingEnemyIndex`,
 `ram_1E43`/`ram_1E8B`/`ram_1E12`, `DualFighterFlag`, the score/spawn-flag
 byte) found a capture-arm at frame 3,568 and `DualFighterFlag` set at
-frame 5,007 -- a clean ~1,400-frame window between them, far more
-tractable than hunting through the 104,454-frame original.
+frame 5,007 -- a clean ~1,400-frame window, far more tractable than
+hunting through the 104,454-frame original.
 
-Narrowing to the two real `ram_1E12` writes in that window (one clears
-it, one sets it to 5 from `rom:9503`, inside `sub_94D2`) traced back the
-actual arm sequence: **`rom:sub_90DE`**, which runs every frame while
-`CaptureAttemptTimer` sits in a specific mid-countdown band, comparing
-`PlayerX` against `CaptureOriginX` (`ram_64`, newly named -- the X
-position saved at the instant of arming). If the player has maneuvered
-back within 12 pixels of where the capture began, this converts the
-attempt directly into the returning-captive sequence.
+**First pass, wrong: "the capture never completes."** Screenshotted a
+sparse set of frames in that window (3,568 / 3,600 / 3,628 / 3,660 /
+3,768 / ...) and, seeing no "FIGHTER CAPTURED" text and an apparently
+unchanged lives count at the frames actually *looked at*, concluded the
+game has a reposition-based evasion window and the ship is never really
+taken. **This was wrong, and wrong for an avoidable reason:** the
+sparse screenshot set had already been taken at finer spacing including
+frame 3,700 -- sitting squarely inside the capture window -- and that
+frame, along with several others, simply wasn't opened before writing
+the conclusion up. The user caught it directly: "There was a life lost
+and a fighter capture shown in the shots you were looking at."
 
-**This is not the mechanic this project had guessed at.** The whole
-previous pass had been implicitly assuming (and the user's original
-hint had been read as describing) a kill-based rescue: shoot the boss
-while it's diving with a captive attached, get the escort back. No
-code path matching that was ever found in either recording. What's
-actually in this ROM: **reposition your ship back under the beam before
-the capture finishes, and you get the ship back directly -- no capture
-text, no life lost, straight to a merge.** Screenshotted the whole
-sequence in run-02.inp to confirm: no "FIGHTER CAPTURED" text appears
-anywhere (checked at frames 3,600/3,628/3,660, all clean -- contrast
-with *every single* capture in `run-01.inp` showing that text within 60
-frames), the ship-icon lives count is unchanged through the beam's
-release around frame 3,768, and the dual-fighter's wider silhouette is
-directly visible on screen by frame 5,007.
+**Corrected, verified frame-by-frame.** A full re-check at 5-frame
+resolution across the whole window (`tools/probe-run02recheck.lua`),
+this time actually viewed in full, shows: `CaptureAttemptTimer` counts
+down its complete, uninterrupted 180-frame course; "FIGHTER CAPTURED"
+is on screen for roughly 80 frames (first visible ~frame 3,670, gone by
+~3,800); the ship-icon lives count drops from 2 to 1; a "READY" respawn
+prompt follows around frame 3,900 -- identical in every respect to
+every capture in `run-01.inp`. The capture is never prevented.
 
-Whether this reposition-based reclaim is the *only* path to a
-dual-fighter in this ROM, or just the one both recordings happened to
-show, is not fully settled -- but no evidence for a kill-based path has
-turned up anywhere, despite two recordings and substantial tracing time
-looking for one. The user's original recollection (formation-kill vs.
-diving-kill) most likely describes what this mechanic feels like from
-the player's seat -- reacting to the beam, getting the ship back --
-rather than a literal kill-triggered branch in the code.
+**What `rom:sub_90DE` actually does, re-verified with a direct write-tap
+instead of inference** (`tools/probe-run02verify.lua`, tapping `ram_0089`
+directly and sampling `PlayerX`/`CaptureOriginX`/`CaptureAttemptTimer`
+every 10 frames): during a specific mid-countdown band of
+`CaptureAttemptTimer` (`$3C`-`$78`), it checks whether `PlayerX` is
+still within 12 pixels of `CaptureOriginX` (the position saved at the
+instant of arming). In this recording the ship barely moved during the
+(likely input-locked) capture animation -- `PlayerX` and
+`CaptureOriginX` sat 2 pixels apart the entire time -- so the check
+passed almost immediately, arming `ram_0089` at frame 3,629, exactly
+inside the predicted window. That flag then sits pending until the new
+ship has actually respawned and become controllable (`ram_0089` cleared
+by `rom:sub_8B53` at frame 3,876, right where `PlayerX` starts changing
+under real input again), which queues the returning-captive animation
+that completes at `rom:92B3` (`DualFighterFlag` set at frame 5,007).
+
+**The real mechanic:** getting captured always costs a life and plays
+out in full, exactly as it always did. Separately, if the ship stayed
+near the capture point during a specific window of that same sequence,
+the captured ship is queued to automatically merge with the *next*
+spawned ship as an escort, rather than being lost for good or turning
+hostile -- softening the cost of a capture without preventing it.
+Whether this position check is close to automatic in practice (the
+captured ship may not be player-movable during the beam sequence at
+all, making a passing check the common case) or can meaningfully fail
+is still open -- `run-01.inp` had five confirmed captures but only two
+real `DualFighterFlag`-forming events, so it evidently doesn't always
+succeed, and what differs between those cases hasn't been checked.
+Whether a kill-based rescue path (shoot the diving captor) *also*
+exists alongside this one remains unconfirmed either way.
+
+**Lesson for next time, written up for the toolkit too:** a screenshot
+sweep is only as good as the screenshots actually opened. Taking a
+finer-grained capture and then eyeballing a coarse subset of it
+re-creates exactly the kind of gap a periodic sample leaves -- the
+frames that would have overturned the conclusion were sitting on disk,
+unopened, the whole time.
 
 ## What's still open
 
@@ -588,18 +614,25 @@ rather than a literal kill-triggered branch in the code.
   a way that would defeat a flat frequency count -- but a real, cheap
   data point in one direction rather than an open guess in either.
 * ~~The tractor-beam capture-vs-formation-kill branch from the user's
-  second hint~~ -- **FULLY RESOLVED**, in two stages: "The tractor
+  second hint~~ -- **RESOLVED**, across three corrections. "The tractor
   beam, solved" found `DualFighterFlag` (`ram_1E11`), where it's set
   (`rom:92B3`), and where it's cleared on a survivable hit
-  (`rom:sub_D1D3`); a second, user-made recording (`run-02.inp`) then
-  found what arms the sequence in the first place (`rom:sub_90DE`) --
-  and it turned out to be a proximity-based reclaim window, not a
-  kill-based rescue as this project had guessed. See "`run-02.inp`" for
-  the full story and the surprise.
-* Whether the `run-02.inp` reposition-based reclaim is the *only* path
-  to a dual-fighter in this ROM, or just the one both recordings
-  happened to show -- no evidence for a kill-based rescue path has
-  turned up in either recording, but that's not the same as ruling one
-  out.
+  (`rom:sub_D1D3`). A second, user-made recording (`run-02.inp`) then
+  found what arms the sequence (`rom:sub_90DE`) -- a proximity check, not
+  a kill. The first read of that check ("the capture never completes")
+  was itself wrong and the user caught it directly; re-verified
+  frame-by-frame, the capture always happens in full (text, life cost,
+  respawn) and the proximity check only decides whether the captured
+  ship gets queued to auto-merge with the *next* spawned ship. See
+  "`run-02.inp`" for the full, corrected story.
+* Whether the position check at `rom:90DE` is close to automatic in
+  practice, or can meaningfully fail -- `run-01.inp` had five confirmed
+  captures but only two real `DualFighterFlag`-forming events, so it
+  evidently doesn't always succeed, and what differs between those cases
+  hasn't been checked.
+* Whether a kill-based rescue path (shoot the diving captor) *also*
+  exists in this ROM alongside the proximity-based one -- no evidence
+  for one has turned up in either recording, but that's weaker evidence
+  now that the proximity mechanism itself needed a real correction.
 * The private reference source stays unconsulted, per the plan -- see
   `README.md`.
