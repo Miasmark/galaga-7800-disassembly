@@ -101,21 +101,52 @@ found) hasn't been checked -- a first skim of the raw bytes didn't show
 the same dense `$00`/`$40`/`$AA`/`$FF` signature those did, but that
 was eyeballing a handful of rows, not a real check.
 
+## `run-01.inp`, and two hints from the user
+
+A long recording (962,499 bytes) is now in the repo -- per the user, an
+attempt at thorough coverage of the game's mechanics, though it doesn't
+include a perfect challenge-stage clear. Two domain-expert observations
+came with it, neither yet checked against the ROM's own bytes -- recorded
+here as concrete, falsifiable targets for the first live probes, the same
+role the Dig Dug user's own gameplay hints played in that project:
+
+* **The bonus-stage per-group point award is not constant across the
+  game -- it dropped from 1,600 to 1,000 points per cleared group around
+  wave 36.** The manual's own figures (see above) don't mention this at
+  all, so whatever table drives it is either wave-indexed with a change
+  partway through, or there's a second mechanism entirely. A concrete,
+  checkable claim: find the score-add call(s) for a bonus-stage kill, and
+  see whether the awarded value is read from a small table indexed by
+  wave number (or a wave-derived quantity), the same shape Dig Dug's
+  veggie-value table turned out to have.
+* **The tractor-beam capture mechanic has a real branch the manual's own
+  summary glosses over.** Destroying the capturing flagship while it's
+  still in *formation* (not actively diving) does NOT rescue the
+  captured ship into a dual-fighter -- the captured fighter is released
+  and comes flying at the player solo instead, behaving like an
+  attacking enemy rather than a friendly rescue. The dual-fighter
+  configuration only happens if the capturing flagship is destroyed
+  while it is actively in flight/diving, matching the manual's "shoot it
+  while it's attacking" line, but the *formation-kill* case was
+  initially mistaken for a bug by the user during recording and turned
+  out to be real, intended behavior. Two distinct code paths to find:
+  whatever decides "released ship becomes a hostile flying at the
+  player" vs. "released ship joins as a synchronized dual-fighter," keyed
+  on whatever state the capturing flagship was in at the moment of its
+  death.
+
 ## What's still open
 
-Close to everything past the shape of the map. Concretely, next:
-
+* The two hints above -- neither traced yet.
 * Whether `CHARBASE` gets set anywhere in this ROM at all -- the one
   write found so far (`rom:B01D`) is inside a generic zero-clearing
   boot loop, not a deliberate graphics-sheet assignment, and no second
   writer has turned up yet in the 35.9% currently traced.
 * Whether any of the nine newly-declared `dat_` blocks are actually
   graphics data rather than parameter tables -- not checked yet.
-* A live-checkable gameplay hook (score display, lives counter, the
-  enemy-formation entrance sequence, the tractor-beam capture) to anchor
-  the first real probe, the same way Dig Dug's dig action and Centipede's
-  poison-mushroom mechanism were found by pointing a write-tap at a
-  concrete, observable moment instead of guessing from static reading
-  alone.
+* The general RAM map (score, lives, wave number, ship state) hasn't
+  been started -- `run-01.inp` plus a snapshot-style probe (the same
+  shape as the sibling projects' `tools/probe-ram-snapshots.lua`) is the
+  natural way in, now that a recording exists.
 * The private reference source stays unconsulted, per the plan -- see
   `README.md`.
