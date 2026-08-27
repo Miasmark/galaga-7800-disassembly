@@ -638,6 +638,14 @@ tight, sustained pairing like this one, well after formation is
 established, is itself a meaningful signal, not just incidental group
 movement.
 
+One alternative explanation was raised and ruled out directly: real
+flagships in this game can carry up to two escorts flying in formation
+below them (per this project's own manual summary at the top of this
+document). That could have explained a paired sprite without needing a
+captured-fighter reading at all -- but the user confirmed no escorts
+are present on this particular flagship in `run-02.inp`, so the pairing
+really is the captured fighter, not a normal two-escort formation.
+
 ## What's still open
 
 * Whether the value really does climb back to 1,600 around wave 50, as
