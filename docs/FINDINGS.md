@@ -207,21 +207,65 @@ not getting a perfect clear almost exactly, and reads as a near-1:1 kill
 count after all rather than the "points in some unit" guess made before
 the correction.
 
+## Mapping the challenge-stage gate: a timer found, the wave number still not
+
+Traced `ram_0061` (the gate at `rom:D021`) back to its source rather than
+guessing at its meaning directly. It's set by a small state machine built
+around `ChallengeCountdown` (`ram_00BD`, newly named): a per-tick timer
+armed to `$80` (128) at two points -- game boot, and inside the same area
+that increments the `ram_0042`/`0043` pair discussed below -- and
+decremented once per pass through `rom:sub_9D87` (itself gated on an
+unidentified pause/animation-lock byte). `ram_0061`'s challenge-stage
+window opens specifically when the countdown reaches `$60` -- 32 ticks
+after being armed -- and a separate path (the countdown reaching 0
+without that condition firing) resets `ChallengeHitCountBin` and two
+other bytes, reading as a timeout/cleanup distinct from a real
+challenge-stage entry. This is real structure, not a guess -- but it
+explains *when* the challenge window can open within a single ~128-tick
+cycle, not what determines that a given wave is a challenge wave in the
+first place, and it doesn't reach the wave-36 point-value question
+directly.
+
+**`ram_0046` reinterpreted, and a live dead end.** Following the
+countdown-timer thread led to `rom:sub_9D0F`, which resets `ram_0046` (the
+byte compared against `13/25/37/49/61` in the formation-pattern code) to
+1. That routine only runs at boot and from inside the countdown-timer
+area -- neither fires once per wave -- while live data shows `ram_0046`
+cycling through roughly 1-62 dozens of times across the ~10-minute
+recording, far more often than a per-wave reset would produce. Revised: a
+per-formation-entry-step sub-counter *within* a wave, not the wave number.
+Separately chased a promising-looking candidate, `ram_2775`
+(mostly-monotonic by a coarse first/last comparison, climbing to the low
+30s-40s by the end of the recording) and ruled it out on closer
+inspection: the full frame-by-frame trajectory is a continuous sawtooth
+oscillation the entire session, not a step counter -- the coarse
+comparison that flagged it only looked at endpoints and missed the
+back-and-forth in between. Matches its code usage (`INC`/`DEC` on a
+per-object indexed array, most likely enemy movement/animation phase, not
+game progress).
+
+**Net for this pass:** more of the challenge-stage machinery is mapped
+(a real countdown timer, a real entry-window condition, a real timeout
+path), and one more wrong-looking byte was caught and written up as wrong
+rather than left as an untested guess -- but the wave-number counter
+itself is still unfound, and the wave-36 scoring-drop question is
+therefore still open.
+
 ## What's still open
 
+* The real wave-number counter -- three candidates now checked and set
+  aside (`ram_0042`/`0043`, `ram_0046`, `ram_2775`); still unfound. The
+  manual's own note that "waves display at lower right" suggests looking
+  for the on-screen digit-rendering code next, which would locate the
+  byte definitively rather than by behavioral guesswork.
 * Whether `ram_2724`-`ram_2726` (`ScoreHi`/`Mid`/`Lo`) is really the
   single master on-screen score, or a smaller sub-accumulator that feeds
   into something bigger not yet found -- the mechanism is now
   live-confirmed active, but the value it implies reads low for the
   session length and wave reached.
-* The real wave-number counter -- one candidate (`ram_0042`/`0043`) was
-  checked live and looks wrong (only ever reached 5); still unfound.
-* `ram_0061` (the challenge-stage gate at `rom:D021`) and the wide span
-  of code that references it (`$966E`-`$9E03`) -- unmapped, and the most
-  direct path to the wave-36 scoring-drop question specifically (the
-  formation-pattern-selection code nearby compares a related byte,
-  `ram_0046`, against `13/25/37/49/61` -- an evenly-spaced sequence
-  worth checking against the wave-36 report once the byte is mapped).
+* What determines that a given wave is a challenge wave in the first
+  place -- the countdown-timer window (`ChallengeCountdown`/`ram_0061`)
+  is now mapped, but not what schedules it.
 * Whether `CHARBASE` gets set anywhere in this ROM at all -- the one
   write found so far (`rom:B01D`) is inside a generic zero-clearing
   boot loop, not a deliberate graphics-sheet assignment, and no second
