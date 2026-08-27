@@ -565,6 +565,50 @@ re-creates exactly the kind of gap a periodic sample leaves -- the
 frames that would have overturned the conclusion were sitting on disk,
 unopened, the whole time.
 
+## The kill really does matter -- the user was right about that too, confirmed frame-by-frame
+
+Even after the correction above, this project's read of `rom:sub_90DE`
+(a proximity check, arming the merge on its own) was still incomplete.
+The user, watching this same recording, pointed at the exact moment:
+"the specific foe is killed when the score turns 4500->4900, spins for
+a couple of seconds" -- and asked for that to be checked directly rather
+than taken on faith a third time.
+
+It checked out. That kill (frame 4,609) goes through the same
+`sub_CFEA`/`sub_CFEF` collision-resolution path already mapped while
+solving the wave-36 hint (landing on the ordinary +400 default case,
+not the `CPY #$28` branch). Tracking `ram_1E43`/`ram_1E8B` every 5
+frames (`tools/probe-run02kill2.lua`) shows them **freeze** solid from
+about frame 4,610 to about frame 4,870 -- right where the kill happens
+-- and a tight consecutive-frame screenshot check during that freeze
+shows a small sprite at the kill site visibly changing shape/orientation
+frame to frame: a real spin, not a static object or a simple explosion
+burst. Once the freeze ends, both values climb cleanly to their
+completion targets, finishing at frame 5,007 -- "a couple of seconds"
+of visible spin-and-return, matching the user's account closely.
+
+This makes the earlier framing in this project's own `rom:90DE` comment
+("the proximity check at frame 3,629 is what leads to the merge")
+look wrong on its own terms, independent of the user's correction: that
+arm event fires 1,378 frames before completion, far too early to be
+what a "couple of seconds" tied to a specific kill 1,040 frames later
+is describing. The more likely shape, **not yet confirmed at the
+instruction level**: something early (plausibly that same proximity
+check) arms a watcher, but the captive can't begin its own tracked
+return until whatever is carrying it is actually destroyed -- gated,
+plausibly, on whether the enemy at `CapturingEnemyIndex` is still
+alive. No PC has been identified yet that reads `CapturingEnemyIndex`
+and gates the freeze/resume on it directly; that's the concrete next
+step, not a re-guess.
+
+**Net for this whole thread:** three real corrections in a row, each
+one caught either by the user's direct correction or a targeted
+re-check rather than continued guessing -- capture always happens,
+capture-with-eventual-merge is real, and the kill genuinely gates the
+merge's completion. What's still missing is the specific instruction
+that connects the kill to the freeze ending, and that gap is being
+left open rather than filled with a fourth guess.
+
 ## What's still open
 
 * Whether the value really does climb back to 1,600 around wave 50, as
@@ -614,25 +658,26 @@ unopened, the whole time.
   a way that would defeat a flat frequency count -- but a real, cheap
   data point in one direction rather than an open guess in either.
 * ~~The tractor-beam capture-vs-formation-kill branch from the user's
-  second hint~~ -- **RESOLVED**, across three corrections. "The tractor
-  beam, solved" found `DualFighterFlag` (`ram_1E11`), where it's set
-  (`rom:92B3`), and where it's cleared on a survivable hit
-  (`rom:sub_D1D3`). A second, user-made recording (`run-02.inp`) then
-  found what arms the sequence (`rom:sub_90DE`) -- a proximity check, not
-  a kill. The first read of that check ("the capture never completes")
-  was itself wrong and the user caught it directly; re-verified
-  frame-by-frame, the capture always happens in full (text, life cost,
-  respawn) and the proximity check only decides whether the captured
-  ship gets queued to auto-merge with the *next* spawned ship. See
-  "`run-02.inp`" for the full, corrected story.
-* Whether the position check at `rom:90DE` is close to automatic in
-  practice, or can meaningfully fail -- `run-01.inp` had five confirmed
-  captures but only two real `DualFighterFlag`-forming events, so it
-  evidently doesn't always succeed, and what differs between those cases
-  hasn't been checked.
-* Whether a kill-based rescue path (shoot the diving captor) *also*
-  exists in this ROM alongside the proximity-based one -- no evidence
-  for one has turned up in either recording, but that's weaker evidence
-  now that the proximity mechanism itself needed a real correction.
+  second hint~~ -- **LARGELY RESOLVED, across four corrections in a
+  row** (see "The tractor beam, solved," "`run-02.inp`," and "The kill
+  really does matter"). Confirmed: `DualFighterFlag` (`ram_1E11`), set
+  at `rom:92B3` and cleared on a survivable hit at `rom:sub_D1D3`; a
+  capture always plays out in full (text, life cost, respawn -- an
+  earlier "the capture never completes" read was wrong, caught by the
+  user); and killing the enemy carrying a captive genuinely gates the
+  merge's completion, matching the user's original hint directly --
+  confirmed by watching `ram_1E43`/`ram_1E8B` freeze right at a
+  user-identified kill and resume ~260 frames later. **Not yet
+  resolved:** the specific instruction connecting that kill to the
+  freeze ending -- left open rather than guessed at a fourth time.
+* What specifically reads `CapturingEnemyIndex` (`ram_005C`) to gate
+  `ram_1E43`/`ram_1E8B`'s progression on whether that enemy is still
+  alive -- the most likely mechanism given the freeze/resume timing, but
+  no instruction has been identified that actually does this.
+* What the roughly 1,300-frame gap between `rom:sub_90DE`'s proximity
+  check (frame 3,629) and the kill that matters (frame 4,609) represents
+  -- whether that early check is a real precondition for the merge (e.g.
+  arming a watcher) or an unrelated event that happened to touch the
+  same shared bytes.
 * The private reference source stays unconsulted, per the plan -- see
   `README.md`.
