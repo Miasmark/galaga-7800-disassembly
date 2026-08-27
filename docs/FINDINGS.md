@@ -613,17 +613,30 @@ left open rather than filled with a fourth guess.
 fly in formation the whole time.** Screenshotted every 20 frames from
 the moment the new ship respawns (frame 3,900, "READY" still on screen)
 through the kill (frame 4,609) and found the same two-sprite pair (a
-white moth-shaped enemy directly paired with a smaller blue enemy,
+white moth-shaped sprite directly paired with a smaller blue sprite,
 always adjacent, moving together) visible continuously across that
 entire ~700-frame span -- present the instant the new ship spawns in,
 still paired through several loops around the formation area, still
 diving together right up to nine frames before the kill. This is direct
-visual support for the basic shape of the user's original hint: a boss
-carries a captured fighter with it, visibly, until something releases
-it. Not yet settled: whether the paired sprite (rendered blue, not the
-player's own white/red) is drawn from the player's own ship graphics or
-a separate escort tile -- a detail worth checking before assuming which
-it is.
+visual support for the basic shape of the user's original hint: the
+capturing enemy carries the captured fighter with it, visibly, until
+something releases it.
+
+**Sprite identification corrected, per the user comparing a zoomed
+screenshot directly against the player's own ship visible in the same
+frame:** the upper sprite in the pair (white, red/pink center) is
+shaped almost identically to the player's own ship rendered lower in
+the same shot -- it's the *captured player fighter*, reusing the
+player's own graphics, not "the boss" as first guessed. The lower blue
+sprite (a different, shield-like shape) is the actual capturing
+enemy -- the reverse of this project's first read. The geometry fits:
+player-shaped sprite on top, enemy below, a captured ship riding
+attached to its captor. The user also made a methodological point worth
+keeping: ordinary formation enemies fly paired only during a wave's own
+pre-formation flight-in choreography, not persistently mid-wave -- so a
+tight, sustained pairing like this one, well after formation is
+established, is itself a meaningful signal, not just incidental group
+movement.
 
 ## What's still open
 
