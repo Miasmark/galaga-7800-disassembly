@@ -1,0 +1,45 @@
+{
+  "_README": [
+    "Started by init.py from Galaga (NTSC) (Atari) (1987) (1A0A3EB3).a78.",
+    "",
+    "Every human judgement about this ROM lives in this file; the",
+    "generated listings are disposable, so renaming is free.",
+    "",
+    "What to do next, roughly in order:",
+    "",
+    "  1. python tools/disasm.py Galaga (NTSC) (Atari) (1987) (1A0A3EB3).a78 -c annotations.json",
+    "     Read the coverage it reports. Low coverage is normal at",
+    "     first and is the number you are trying to move.",
+    "",
+    "  2. Every unresolved indirect jump it reports is a hole. Add the",
+    "     target to `entries`, or the pointer pair to `ram_vectors` if",
+    "     the handler is installed into RAM.",
+    "",
+    "  3. python tools/audiotrace.py Galaga (NTSC) (Atari) (1987) (1A0A3EB3).a78 -c annotations.json",
+    "     Finds the sound code and the tables feeding it.",
+    "",
+    "  4. Name things in `labels` as soon as you know what they are.",
+    "",
+    "See docs/method.md for the working order and docs/pitfalls.md for",
+    "the traps that each cost real time."
+  ],
+  "entries": [
+    "rom:B610",
+    "rom:B15D",
+    "rom:FF73"
+  ],
+  "ram_vectors": [],
+  "bankat": {},
+  "labels": {
+    "rom:B610": "ENTRY_Irq",
+    "rom:B15D": "ENTRY_Nmi",
+    "rom:FF73": "ENTRY_Reset"
+  },
+  "ram": {},
+  "comments": {},
+  "headers": {},
+  "blocks": [],
+  "notes": {
+    "rom": "Galaga (NTSC) (Atari) (1987) (1A0A3EB3).a78\nmapper linear, 32 KB, NTSC\nno POKEY declared; audio is the TIA's two voices\n\nVectors: IRQ $B610  NMI $B15D  RESET $FF73\n\nWritten by init.py. Everything here is read from the cartridge; the\njudgement calls are yours to add."
+  }
+}
