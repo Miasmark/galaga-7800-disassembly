@@ -160,38 +160,68 @@ itself -- the gate, referenced from a wide span of code
 (`$966E`-`$9E03`) not yet mapped -- is the natural next target for the
 wave-36 scoring-drop question specifically.
 
-**A shape match for score-add that live data rejected.** `rom:93E0`
-looked, on paper, exactly like what a two-player
-score-add routine should look like: a 3-byte BCD accumulator add with
-carry chaining, immediately followed by an identical second block into a
-different 3-byte accumulator, selected by an index -- structurally the
-same shape Dig Dug's `ScoreLo/Mid/Hi` finding had. Checked the six bytes
-those two accumulators use against the existing RAM-snapshot capture and
-none of them changed even once across the whole ~10-minute recording.
-Rather than force the match, it's recorded as an open, live-rejected
-candidate: either this code path is a rare event unrelated to the
-per-kill score display, or the real score lives somewhere else entirely
-and this is a different accumulator. The actual on-screen score's RAM
-location is still unfound.
+**A rejection that turned out to be wrong, caught and corrected in place.**
+`rom:93E0` looked, on paper, exactly like a two-player score-add routine:
+a 3-byte BCD accumulator add with carry chaining, immediately followed by
+an identical second block into a different 3-byte accumulator, selected
+by an index -- structurally the same shape Dig Dug's `ScoreLo/Mid/Hi`
+finding had. First checked against the existing 60-frame-interval
+RAM-snapshot capture, none of the six bytes involved appeared to change,
+and the finding was written up as rejected. That was wrong, and the
+lesson generalizes (written up in the toolkit's own `docs/pitfalls.md`):
+a follow-up narrow, unthrottled, frame-exact write-tap
+(`tools/probe-challenge-writes.lua`, over the same window the challenge
+stage happens in) caught the routine's own `STA` firing on *every single
+frame* without exception -- mostly adding zero, but with real BCD
+increments landing in exact lockstep with `ChallengeHitCount`'s own
+events. The 60-frame sampling simply never landed on a frame where the
+accumulated total had moved net-net; that is not the same as the code
+never running. Working out the loop's own addition order (lowest digits
+added first, so carry flows into the higher ones) gives the real byte
+order too, which runs opposite to address order: `ram_2726` = lowest BCD
+digit pair (confirmed live cycling through the full 00-99 range
+repeatedly), `ram_2725` = next pair up (climbed 16->34 across the
+captured window), `ram_2724` = highest pair captured here (stayed 00
+throughout) -- named `ScoreHi`/`ScoreMid`/`ScoreLo` accordingly, with a
+second, so-far-unobserved copy at `ram_2727`-`ram_2729` for (plausibly) a
+second player. **Not fully closed**: the value this implies across the
+captured window (roughly 1600-3500) reads low for many minutes of active
+play at a high wave number, which leaves real doubt this is the single
+master on-screen score rather than a smaller sub-accumulator -- flagged
+as open, not resolved.
 
-**A likely misidentification, caught rather than asserted.** A separate
-BCD-plus-plain-binary counter pair (`rom:9DBE`, bytes `ram_0042`/
-`ram_0043`) looked at first read like a strong wave-number candidate --
-it resets to 1 (not 0) on overflow, alongside several other bytes being
-cleared, matching "a new round is starting." Checked against
-`run-01.inp` and it only ever reached 5, with several resets to 0 along
-the way -- inconsistent with the user's report of reaching wave 36 in
-this same session. Flagged as an open misidentification rather than
-corrected to a guess; the real wave-number byte is still unfound.
+**A likely misidentification, caught rather than asserted -- and a real
+correction to an earlier misread nearby.** A separate BCD-plus-plain-
+binary counter pair (`rom:9DBE`, bytes `ram_0042`/`ram_0043`) looked at
+first read like a strong wave-number candidate -- it resets to 1 (not 0)
+on overflow, alongside several other bytes being cleared, matching "a new
+round is starting." Checked against `run-01.inp` and it only ever reached
+5, with several resets to 0 along the way -- inconsistent with the user's
+report of reaching wave 36 in this same session, and still flagged open
+rather than corrected to a new guess. Separately, `ChallengeHitCount`
+itself needed a correction: the first live check read its raw peak byte
+value (`51`) as the count directly, when it's BCD-encoded and the real
+peak was **33** (`0x33`, digits '3' and '3') -- 33 out of the manual's
+40-ships-per-stage figure, which lines up with the user's own account of
+not getting a perfect clear almost exactly, and reads as a near-1:1 kill
+count after all rather than the "points in some unit" guess made before
+the correction.
 
 ## What's still open
 
-* The real location of the on-screen score and the wave-number counter
-  -- both actively searched this pass, neither found; see above for two
-  rejected candidates, not dead ends but eliminated guesses.
+* Whether `ram_2724`-`ram_2726` (`ScoreHi`/`Mid`/`Lo`) is really the
+  single master on-screen score, or a smaller sub-accumulator that feeds
+  into something bigger not yet found -- the mechanism is now
+  live-confirmed active, but the value it implies reads low for the
+  session length and wave reached.
+* The real wave-number counter -- one candidate (`ram_0042`/`0043`) was
+  checked live and looks wrong (only ever reached 5); still unfound.
 * `ram_0061` (the challenge-stage gate at `rom:D021`) and the wide span
   of code that references it (`$966E`-`$9E03`) -- unmapped, and the most
-  direct path to the wave-36 scoring-drop question.
+  direct path to the wave-36 scoring-drop question specifically (the
+  formation-pattern-selection code nearby compares a related byte,
+  `ram_0046`, against `13/25/37/49/61` -- an evenly-spaced sequence
+  worth checking against the wave-36 report once the byte is mapped).
 * Whether `CHARBASE` gets set anywhere in this ROM at all -- the one
   write found so far (`rom:B01D`) is inside a generic zero-clearing
   boot loop, not a deliberate graphics-sheet assignment, and no second
