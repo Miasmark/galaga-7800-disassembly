@@ -397,12 +397,13 @@ reaches. If play had continued, the value should climb back to a flat
 `+1,600` again around wave 50 (the next time the cycle reaches 4) --
 not checked live, since `run-01.inp` ends at wave 36.
 
-## The tractor beam, partially traced: the capture attempt found, the release branch not yet
+## The tractor beam, partially traced: the capture attempt directly confirmed, the release branch not yet
 
-Went after the user's second hint next. Found real, new structure, but
-not the specific behavioral split (formation-kill releases a hostile
-solo ship; diving-kill forms a dual-fighter) the hint described --
-documented honestly as partial rather than stretched to look finished.
+Went after the user's second hint next. Found and directly confirmed the
+real capture mechanism on screen, but not yet the specific behavioral
+split (formation-kill releases a hostile solo ship; diving-kill forms a
+dual-fighter) the hint described -- documented honestly as strong partial
+progress rather than stretched to look finished.
 
 **The capture-attempt sequence, found by tracing forward from a diving
 enemy's own state machine.** `rom:sub_903E` runs on a diving enemy each
@@ -419,40 +420,60 @@ sound-channel-silence cleanup used everywhere in this ROM, not anything
 capture-specific) before reassigning the capturing enemy's own state as
 it returns to formation.
 
-**What's missing:** nothing found yet that reads whether the *player's*
-ship was actually caught by the beam during that 180-frame window, or
-sets any flag on the player's own state. This pass only confirms the
-capturing enemy's own side of the sequence.
+**Directly confirmed on screen, after the user corrected an assumption
+this project was making.** The user confirmed live that captures
+happened "a few times early on in the run" -- so instead of relying on
+the two rare score/spawn-flag events already found, tapped every write
+to `CaptureAttemptTimer`/`CapturingEnemyIndex` across the whole early
+game (`tools/probe-capture2.lua`, frames 0-40,000, `-nothrottle`
+throughout given the recording's length, per standing project practice).
+Found **five** capture-arm events, not two, reusing two formation slots
+(`CapturingEnemyIndex` = `$1A` twice, `$11` twice, `$23` once).
+Screenshotted the aftermath of all five: **every one shows the actual
+on-screen "FIGHTER CAPTURED" text and tractor-beam graphic** (a striped
+triangle reaching from the diving boss down to the player), about 60
+frames after the depth-threshold arm -- well inside the 180-frame
+countdown, confirming there's a separate, faster, still-unfound beam/
+player collision check distinct from the countdown's own natural expiry.
+Also directly confirmed: **getting captured costs a life exactly like
+dying** (a "READY" respawn prompt follows immediately, and the ship-icon
+lives count drops by one) -- not survivable once the beam connects,
+short of destroying the diver first.
 
-**A real, promising lead, followed to a live-verified but unresolved
-end.** `CapturingEnemyIndex` gets read back exactly once, at
-`rom:sub_D36C` -- which is called from the two `CPY #$28` score/spawn
-branches this project had *already* mapped while solving the wave-36
-hint (`rom:D01C`, `rom:D244`), both of which award 1,000 points and
-spawn a replacement enemy with state `$0B`. Killing the enemy at the
-fixed array slot `$28` reaches back through `CapturingEnemyIndex` and
-adjusts the *original capturing enemy's* own hit-state
-(`ram_1DD3,Y -= 13`) -- strongly suggesting slot `$28` is a reserved
-position tied specifically to a captured/escorted entity, linked back to
-whichever enemy captured it. Live-checked what this looks like on
-screen: the one `CPY #$28` kill event in the whole recording (frame
-26758, wave 2, the game's very first challenge stage) was screenshotted
-before and after (`tools/probe-spawnflag.lua`) -- a "1000" score popup
-appears exactly as predicted, but the resulting scene (several enemies
-already diving at once) makes it impossible to visually isolate one
-specific newly-spawned ship as either "hostile solo" or "player escort"
-from screenshots alone. The companion event this project was hoping
-would be the diving-kill case (`rom:D2C2`, the clean flat-1,600-point
-escorted-boss path found while solving the wave-36 hint) never actually
-fired anywhere in `run-01.inp` -- only its close cousin at `rom:D2BF`
-(the 800-point path) fired, once, at wave 1.
+**A real, promising lead, followed to a live-verified but still-
+circumstantial end.** `CapturingEnemyIndex` gets read back exactly once,
+at `rom:sub_D36C` -- called from the two `CPY #$28` score/spawn branches
+this project had *already* mapped while solving the wave-36 hint
+(`rom:D01C`, `rom:D244`), both of which award 1,000 points and spawn a
+replacement enemy with state `$0B`. Killing the enemy at the fixed array
+slot `$28` reaches back through `CapturingEnemyIndex` and adjusts the
+*original capturing enemy's* own hit-state (`ram_1DD3,Y -= 13`) --
+strongly suggesting slot `$28` is a reserved position tied specifically
+to a captured/escorted entity, linked back to whichever enemy captured
+it. Sequencing frame numbers against the game's own resets (at least 3
+apparent game-over/restart events show up in the same window, each
+zeroing `CapturingEnemyIndex` from `rom:B145`) makes the frame-23,569
+capture (wave 1) and the already-mapped `CPY #$28` kill at frame 26,758
+(wave 2, +1,000 points) look like the same continuity -- i.e. that
+specific capturing boss was probably killed via the slot-`$28` branch
+shortly after capturing, which would make the 1,000-point/spawn-flag-
+`$0B` outcome the "released as hostile" case from the user's hint.
+**Circumstantial, not proven** -- still no direct tap connecting one
+specific capture to its one specific resolution. The companion event this
+project was hoping would be the diving-kill case (`rom:D2C2`, the clean
+flat-1,600-point escorted-boss path found while solving the wave-36
+hint) never actually fired anywhere in `run-01.inp` -- only its close
+cousin at `rom:D2BF` (the 800-point path) fired, once, at wave 1.
 
-**Net for this pass:** a real piece of new, live-corroborated structure
-(the capture-attempt window and its wave-based difficulty scaling), and
+**Net for this pass:** the actual capture mechanic is now directly
+confirmed on screen ("FIGHTER CAPTURED", the beam graphic, the life
+cost, five real occurrences instead of the two originally assumed), plus
 a specific, testable connection between the score code already mapped
-and slot `$28`'s special status -- but not the hostile-vs-escort branch
-itself. The most likely next step is a *live-tagged* write-tap on
-`ram_1F77` at the moment a slot-`$28` enemy spawns (rather than more
+and slot `$28`'s special status -- but the hostile-vs-escort branch
+itself is still not directly observed, since the recording never
+produced the diving-kill/1,600-point case to compare against. The most
+likely next step is a *live-tagged* write-tap on `ram_1F77` at the
+moment a slot-`$28` enemy spawns (rather than more
 static tracing), watching what state value it's actually given and
 whether that state is what other code branches on for the two outcomes.
 
@@ -470,12 +491,15 @@ whether that state is what other code branches on for the two outcomes.
   3 through 35), i.e. there were roughly ten group-of-8 challenge-kill
   bursts total, not the one this project originally caught before finding
   the truncation bug.
-* The small, still-unidentified digit (ranging 3-5 in the truncated
-  window checked so far, confirmed NOT to be lives -- those are ship
-  icons, bottom-left, per the user) sitting in the same general screen
-  area the wave number was originally expected in -- now a lower
-  priority since the real wave counter is confirmed elsewhere, but still
-  an open identification.
+* ~~The small, still-unidentified digit (ranging 3-5...) sitting in the
+  same general screen area the wave number was originally expected in~~
+  -- **RETRACTED, per the user directly: there is no second digit near
+  the wave counter.** This was never a separate byte -- it was the wave
+  counter itself, seen early in the truncated-data pass when the
+  recording's own real content (frames 0-~35,900 at the time) only
+  covered waves 1-5, so of course the on-screen value read as a single
+  digit in the 3-5 range. Confirming `Wave`/`WaveBCD` later made this
+  look like two different things when it was one all along.
 * What `ram_2724`-`ram_2726` actually represents, now that it's confirmed
   not to be the score -- still live-active every frame, still unexplained.
 * ~~Whether `CHARBASE` gets set anywhere in this ROM at all~~ --
