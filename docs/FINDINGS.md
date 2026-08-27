@@ -716,5 +716,17 @@ really is the captured fighter, not a normal two-escort formation.
   -- whether that early check is a real precondition for the merge (e.g.
   arming a watcher) or an unrelated event that happened to touch the
   same shared bytes.
+* A discrepancy against this project's own manual summary (top of this
+  document), worth recording rather than quietly resolving: the manual
+  says shooting the flagship *while it's actively capturing* rescues the
+  ship, and shooting it *after capture completes* destroys the captured
+  ship too. What `run-02.inp` actually shows is a capture that ran to
+  full completion (life lost, respawn) followed, ~700 frames later, by
+  the flagship being shot down while diving with the captive still
+  visibly attached -- and that led to a rescue, not a destruction. Per
+  this project's own discipline, the manual isn't being re-consulted to
+  resolve this; it's flagged as a live-observed difference from the
+  written description, the same way a private reference's mismatches
+  have been treated elsewhere in this project.
 * The private reference source stays unconsulted, per the plan -- see
   `README.md`.
