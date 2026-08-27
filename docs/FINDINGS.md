@@ -480,12 +480,29 @@ whether that state is what other code branches on for the two outcomes.
   `dat_` block classification pass and the `CHARBASE` search both
   predate this fix, though neither depended on live data the way the
   score/wave work did).
-* Whether `CHARBASE` gets set anywhere in this ROM at all -- the one
-  write found so far (`rom:B01D`) is inside a generic zero-clearing
-  boot loop, not a deliberate graphics-sheet assignment, and no second
-  writer has turned up yet in the 35.9% currently traced.
+* ~~Whether `CHARBASE` gets set anywhere in this ROM at all~~ --
+  **RESOLVED.** `rom:B01D` is its only write in the whole ROM (confirmed:
+  no gaps exist, and a full-file grep finds no second writer), and it's a
+  deliberate one, not incidental -- it sits just past the generic
+  zero-page sweep loop's own range and is named individually alongside a
+  short list of other specific addresses. Set once at boot to 0, never
+  touched again: this ROM reads as using Maria's direct (non-CHARBASE-
+  relative) addressing throughout, where the register just doesn't
+  matter, not a mystery.
 * Whether any of the nine newly-declared `dat_` blocks are actually
-  graphics data rather than parameter tables -- not checked yet.
+  graphics data rather than parameter tables -- **partially checked.** A
+  byte-frequency pass over the five largest blocks (a quick, cheap first
+  filter, not full decoding) found 170-249 distinct byte values in each
+  (out of 256 possible), with no block dominated by a small handful of
+  values -- unlike the dense, few-values-repeated-constantly signature
+  the three 16K sibling projects' actual bit-plane character sheets all
+  showed. Reads as evidence *against* these being raw graphics sheets,
+  more consistent with jump tables, pointer tables, and other code-
+  adjacent parameter data (`dat_9F46`'s own start, already noted as
+  little-endian pointer pairs, fits this). Not conclusive -- an actual
+  sprite sheet could still be compressed or interleaved with metadata in
+  a way that would defeat a flat frequency count -- but a real, cheap
+  data point in one direction rather than an open guess in either.
 * The tractor-beam capture-vs-formation-kill branch from the user's
   second hint -- see "The tractor beam, partially traced" above. The
   capture-attempt window and its enemy-side state are found; the
