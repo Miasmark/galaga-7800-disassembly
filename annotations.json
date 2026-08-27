@@ -38,7 +38,68 @@
   "ram": {},
   "comments": {},
   "headers": {},
-  "blocks": [],
+  "blocks": [
+    {
+      "loc": "rom:FF76",
+      "len": 138,
+      "name": "dat_FF76",
+      "note": "CONFIRMED by inspection, no xrefs anywhere in traced code (checked): the first 10 bytes decode as ASCII 'GCC(c)1984' -- General Computer Corporation's own copyright/signature string, same exact pattern (identical size: 138 bytes, same relative position right after a bare JMP entry point) found in the Dig Dug (7800) project's own tail region -- independently re-confirmed here by reading this ROM's own bytes, not assumed from that project. Followed by ~122 bytes with no discernible structure (not ASCII, no repeating pattern, no xrefs) -- almost certainly unused filler/padding. Ends with the hardware vectors at $FFFA-$FFFF (NMI=$B15D, RESET=$FF73, IRQ=$B610 -- byte-verified against the already-declared entries), which is why this was showing as a gap despite being fully accounted for: vector bytes are data, not executed code."
+    },
+    {
+      "loc": "rom:DF50",
+      "end": "rom:FF73",
+      "name": "dat_DF50",
+      "note": "CONFIRMED: every one of this ROM's 50 already-labeled dat_ sub-tables sitting inside this 8227-byte span (starting with dat_DF50 itself, real xref rom:B8CF) already carries a real cross-reference from already-traced code -- checked programmatically across the whole span, not spot-checked. Also swept for any JSR/JMP in the traced program landing anywhere in this range (the chr_rom_C000-style bug this project's sibling projects learned to check for): none found. Declared as one block to stop 8227 bytes of already-correctly-referenced data from showing as an unclaimed gap. This is the single largest untraced span in the ROM and has not been characterized further yet -- whether it's one resource or several hasn't been determined."
+    },
+    {
+      "loc": "rom:B944",
+      "end": "rom:CC00",
+      "name": "dat_B944",
+      "note": "CONFIRMED: same check as dat_DF50 -- every dat_ label inside this 4796-byte span has a real xref, no code labels found inside it, no JSR/JMP from traced code lands inside it. Declared as one block. Not characterized further yet."
+    },
+    {
+      "loc": "rom:9F46",
+      "end": "rom:B000",
+      "name": "dat_9F46",
+      "note": "CONFIRMED: same check as dat_DF50 -- every dat_ label inside this 4282-byte span has a real xref, no code labels found inside it, no JSR/JMP from traced code lands inside it. The very start of this span (dat_9F46 itself) reads as repeating little-endian pointer pairs into low RAM ($04xx) -- a candidate for a sprite/object pointer table, not decoded further. Declared as one block."
+    },
+    {
+      "loc": "rom:D51A",
+      "end": "rom:DF37",
+      "name": "dat_D51A",
+      "note": "CONFIRMED: same check as dat_DF50 -- every dat_ label inside this 2589-byte span has a real xref (dat_D51A itself: rom:D47F, rom:D4BB), no code labels found inside it, no JSR/JMP from traced code lands inside it. Declared as one block."
+    },
+    {
+      "loc": "rom:B661",
+      "end": "rom:B89A",
+      "name": "dat_B661",
+      "note": "CONFIRMED: same check as dat_DF50 -- every dat_ label inside this 569-byte span has a real xref, no code labels found inside it, no JSR/JMP from traced code lands inside it. Declared as one block."
+    },
+    {
+      "loc": "rom:92ED",
+      "end": "rom:93CF",
+      "name": "dat_92ED",
+      "note": "CONFIRMED: same check as dat_DF50 -- every dat_ label inside this 226-byte span has a real xref, no code labels found inside it, no JSR/JMP from traced code lands inside it. Declared as one block."
+    },
+    {
+      "loc": "rom:871E",
+      "end": "rom:879E",
+      "name": "dat_871E",
+      "note": "CONFIRMED: same check as dat_DF50 -- every dat_ label inside this 128-byte span has a real xref, no code labels found inside it, no JSR/JMP from traced code lands inside it. Declared as one block."
+    },
+    {
+      "loc": "rom:CCF7",
+      "end": "rom:CD17",
+      "name": "dat_CCF7",
+      "note": "CONFIRMED: same check as dat_DF50 -- every dat_ label inside this 32-byte span has a real xref, no code labels found inside it, no JSR/JMP from traced code lands inside it. Declared as one block."
+    },
+    {
+      "loc": "rom:95C1",
+      "len": 1,
+      "name": "dat_95C1",
+      "note": "A single stray byte ($60, the RTS opcode) sitting between an unconditional JMP (rom:95BE) and the next routine's own label (rom:sub_95C2) -- no xref, reads as one byte of alignment padding rather than reachable code or a real table. Declared to close a 1-byte gap."
+    }
+  ],
   "notes": {
     "rom": "Galaga (NTSC) (Atari) (1987) (1A0A3EB3).a78\nmapper linear, 32 KB, NTSC\nno POKEY declared; audio is the TIA's two voices\n\nVectors: IRQ $B610  NMI $B15D  RESET $FF73\n\nWritten by init.py. Everything here is read from the cartridge; the\njudgement calls are yours to add."
   }
