@@ -135,18 +135,70 @@ role the Dig Dug user's own gameplay hints played in that project:
   on whatever state the capturing flagship was in at the moment of its
   death.
 
+## First live pass: BCD arithmetic found by grepping for `SED`, not by guessing
+
+Rather than diff RAM blindly for a score-shaped byte the way the sibling
+projects' first passes did, searched the static disassembly directly for
+`SED` (the 6502's set-decimal-mode instruction) -- a score-add routine
+has to use BCD arithmetic to display cleanly, so every `SED` in the
+program is a short list of real candidates instead of a haystack. Five
+turned up. Two produced solid, if not fully closed, findings; a third
+looked exactly like a score-add routine on paper and turned out not to
+be, live-checked and rejected rather than assumed:
+
+**A strong match for the user's challenge-stage hint, live-corroborated.**
+`rom:D021` increments a BCD counter (`ChallengeHitCount`, `ram_008A`)
+each time it runs, gated by `ram_0061`. Checked against `run-01.inp`
+(`tools/probe-ram-snapshots.lua`): the counter sits at 0 for the first
+~29,000 of the recording's ~35,900 frames, then climbs in a burst over
+about 1,500 frames (0 up to 51), then resets to 0 -- a single, late,
+isolated excursion that lines up with the user's own account of
+attempting a challenge stage near the end of the session. Not fully
+decoded (51 exceeds the manual's 40-ships-per-stage figure, so it's
+likely counting something other than a plain kill), and `ram_0061`
+itself -- the gate, referenced from a wide span of code
+(`$966E`-`$9E03`) not yet mapped -- is the natural next target for the
+wave-36 scoring-drop question specifically.
+
+**A shape match for score-add that live data rejected.** `rom:93E0`
+looked, on paper, exactly like what a two-player
+score-add routine should look like: a 3-byte BCD accumulator add with
+carry chaining, immediately followed by an identical second block into a
+different 3-byte accumulator, selected by an index -- structurally the
+same shape Dig Dug's `ScoreLo/Mid/Hi` finding had. Checked the six bytes
+those two accumulators use against the existing RAM-snapshot capture and
+none of them changed even once across the whole ~10-minute recording.
+Rather than force the match, it's recorded as an open, live-rejected
+candidate: either this code path is a rare event unrelated to the
+per-kill score display, or the real score lives somewhere else entirely
+and this is a different accumulator. The actual on-screen score's RAM
+location is still unfound.
+
+**A likely misidentification, caught rather than asserted.** A separate
+BCD-plus-plain-binary counter pair (`rom:9DBE`, bytes `ram_0042`/
+`ram_0043`) looked at first read like a strong wave-number candidate --
+it resets to 1 (not 0) on overflow, alongside several other bytes being
+cleared, matching "a new round is starting." Checked against
+`run-01.inp` and it only ever reached 5, with several resets to 0 along
+the way -- inconsistent with the user's report of reaching wave 36 in
+this same session. Flagged as an open misidentification rather than
+corrected to a guess; the real wave-number byte is still unfound.
+
 ## What's still open
 
-* The two hints above -- neither traced yet.
+* The real location of the on-screen score and the wave-number counter
+  -- both actively searched this pass, neither found; see above for two
+  rejected candidates, not dead ends but eliminated guesses.
+* `ram_0061` (the challenge-stage gate at `rom:D021`) and the wide span
+  of code that references it (`$966E`-`$9E03`) -- unmapped, and the most
+  direct path to the wave-36 scoring-drop question.
 * Whether `CHARBASE` gets set anywhere in this ROM at all -- the one
   write found so far (`rom:B01D`) is inside a generic zero-clearing
   boot loop, not a deliberate graphics-sheet assignment, and no second
   writer has turned up yet in the 35.9% currently traced.
 * Whether any of the nine newly-declared `dat_` blocks are actually
   graphics data rather than parameter tables -- not checked yet.
-* The general RAM map (score, lives, wave number, ship state) hasn't
-  been started -- `run-01.inp` plus a snapshot-style probe (the same
-  shape as the sibling projects' `tools/probe-ram-snapshots.lua`) is the
-  natural way in, now that a recording exists.
+* The tractor-beam capture-vs-formation-kill branch from the user's
+  second hint -- not started.
 * The private reference source stays unconsulted, per the plan -- see
   `README.md`.

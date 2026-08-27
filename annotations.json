@@ -35,8 +35,15 @@
     "rom:B15D": "ENTRY_Nmi",
     "rom:FF73": "ENTRY_Reset"
   },
-  "ram": {},
-  "comments": {},
+  "ram": {
+    "8A": "ChallengeHitCount",
+    "63": "ChallengeHitCountBin"
+  },
+  "comments": {
+    "rom:D021": "CONFIRMED shape (SED/BCD arithmetic), CANDIDATE match for the user's challenge-stage hint: gated by ram_0061 being nonzero, increments ChallengeHitCount (ram_008A) by 1 in BCD each time this runs, and unconditionally increments ChallengeHitCountBin (ram_0063, a plain binary counter -- likely a parallel encoding of the same event, matching the pattern already seen at rom:9DBE for a different pair of adjacent bytes). LIVE-CHECKED against run-01.inp (tools/probe-ram-snapshots.lua): ChallengeHitCount sits at 0 for the first ~29000 of this ~35900-frame recording, then climbs in a burst (0,1,3,4,6,8,17,18,20,24,25,34,37,38,48,51) over about 1500 frames, then resets to 0 -- a single, late, isolated excursion, which lines up with the user's own account of attempting (but not perfectly clearing) a challenge/bonus stage near the end of the session. Not fully decoded: the final value (51) exceeds the manual's stated 40 ships per challenge stage, so this likely isn't a plain 1:1 kill count -- possibly points-in-some-unit, or a hit count that includes misses/re-triggers. ram_0061 itself (the gate) is heavily referenced elsewhere ($966E-$9E03) and hasn't been mapped yet -- the natural next step for the wave-36 scoring-drop hint.",
+    "rom:9DBE": "CONFIRMED shape (SED/BCD arithmetic): increments ram_0043 by 1 in BCD, alongside a plain (non-BCD) INC of the adjacent byte ram_0042 -- two parallel encodings (binary + BCD-display) of what is likely the same counter, the same shape found again at rom:D021 for a different byte pair. On BCD overflow (carry), resets both back to 1 (not 0) and clears four other bytes (ram_0058/005A/0049/005B) -- consistent with 'a new wave/round is starting' bookkeeping, but NOT LIVE-CONFIRMED as wave number: in run-01.inp this pair only ever reached 5, with several resets back to 0 along the way, which doesn't fit the user's report of reaching wave 36 in this same recording. Likely a different, smaller-range counter (a within-wave sub-state, not the wave number itself) -- flagged as an open misidentification risk rather than asserted.",
+    "rom:93E0": "CONFIRMED shape (SED/BCD arithmetic), NOT LIVE-CONFIRMED: a 3-byte BCD accumulator add (Y=2..0, adding ram_006C,Y into ram_2724,Y) with carry chaining into a further BCD digit pair (ram_2762/ram_2763, capped at 10 via CMP #$0A/SBC #$0A) -- structurally exactly the shape a score-add routine should have (matches the sibling Dig Dug project's own ScoreLo/Mid/Hi finding). A second, identical block immediately after (rom:9412) does the same into ram_2727,Y instead, selected by whether X is zero -- a strong shape match for 'two independent score-like accumulators, selected by an index,' plausibly two players. CAVEAT: checked ram_2724-2729 against the existing run-01.inp RAM-snapshot capture and none of those six bytes changed even once across the whole ~10-minute recording -- meaning either this code path never actually ran during that session (a rare event, not the main per-kill score add), or the real on-screen score lives somewhere else entirely and this is a different BCD accumulator. Not adopted as the confirmed score location; flagged honestly as a real, live-untested static finding rather than asserted as fact."
+  },
   "headers": {},
   "blocks": [
     {
