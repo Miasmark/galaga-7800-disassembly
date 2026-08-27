@@ -646,6 +646,43 @@ captured-fighter reading at all -- but the user confirmed no escorts
 are present on this particular flagship in `run-02.inp`, so the pairing
 really is the captured fighter, not a normal two-escort formation.
 
+## Why the captive follows its captor: a four-slot fallback list, found while digging further
+
+Kept digging on the still-open instruction-level question and found a
+real, separate piece of the mechanism -- not the exact freeze/resume
+trigger, but a solid explanation for *why* the captured fighter visually
+tracks a living boss around the screen at all, which is worth having on
+its own.
+
+`rom:sub_8FAC` runs when the game processes the special slot-`$28`
+entity (the captured-fighter visual). It checks whether the enemy at
+`CapturingEnemyIndex` is still alive; if so, nothing changes. If that
+enemy is dead, it searches a **fixed list of four formation slots -- `$06`,
+`$11`, `$1A`, `$23`** -- via `rom:sub_8FD4`, looking for the first one
+still alive, and reassigns `CapturingEnemyIndex` to it if found. Two of
+the five capture events found live in `run-01.inp` used
+`CapturingEnemyIndex` values `$1A` and `$11` -- both members of this
+exact fixed set -- which lines up well: these four slots read as the
+ROM's fixed "flagship" formation positions, the only slots eligible to
+carry a tractor beam and a captive. A companion routine
+(`rom:sub_8FF6` onward) then reads a target position from whichever
+index this resolves to and steers slot `$28`'s own movement toward
+it -- this is the code making the captured fighter visually follow a
+living boss, directly explaining the ~700-frame formation-flying
+screenshotted above.
+
+**What this doesn't settle:** the exact link from "no living captor
+found anywhere in the five-slot set" to the `ram_1E43`/`ram_1E8B` freeze
+actually ending (`rom:sub_9250`). Digging into that surfaced a
+complication worth recording on its own: `ram_1E43`/`ram_1E8B` turn out
+to be shared scratch bytes, reused by at least one other, unrelated
+per-enemy animation state (`rom:sub_915D`, dispatch nibble 7 -- an
+apparent idle-wobble routine for a completely different enemy type).
+That means a raw "these bytes stopped changing" reading can't be fully
+trusted as "this specific sequence paused" without also confirming
+which enemy's dispatch actually owns them at that moment -- the real
+remaining gap is that disambiguation, not simply an unfound instruction.
+
 ## What's still open
 
 * Whether the value really does climb back to 1,600 around wave 50, as
@@ -707,10 +744,18 @@ really is the captured fighter, not a normal two-escort formation.
   user-identified kill and resume ~260 frames later. **Not yet
   resolved:** the specific instruction connecting that kill to the
   freeze ending -- left open rather than guessed at a fourth time.
-* What specifically reads `CapturingEnemyIndex` (`ram_005C`) to gate
-  `ram_1E43`/`ram_1E8B`'s progression on whether that enemy is still
-  alive -- the most likely mechanism given the freeze/resume timing, but
-  no instruction has been identified that actually does this.
+* ~~What specifically reads `CapturingEnemyIndex` to gate
+  `ram_1E43`/`ram_1E8B`'s progression~~ -- **PARTIALLY ANSWERED.**
+  `rom:sub_8FAC` confirms the captive tracks a living captor, falling
+  back through a fixed four-slot list (`$06`/`$11`/`$1A`/`$23`) if the
+  original dies -- a real, solid piece of the mechanism, and it
+  explains the formation-flying directly. What it does NOT yet settle:
+  the exact instruction connecting "no living captor left anywhere" to
+  the freeze at `rom:sub_9250` actually ending -- complicated by
+  `ram_1E43`/`ram_1E8B` being shared scratch bytes also used by an
+  unrelated animation (`rom:sub_915D`), so confirming which enemy's
+  dispatch owns them at a given moment is the real next step, not
+  simply an unfound read.
 * What the roughly 1,300-frame gap between `rom:sub_90DE`'s proximity
   check (frame 3,629) and the kill that matters (frame 4,609) represents
   -- whether that early check is a real precondition for the merge (e.g.
