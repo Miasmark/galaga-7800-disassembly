@@ -487,12 +487,57 @@ visual evidence alone.
 confirmed -- capture (with its on-screen text and life cost), rescue
 into a dual-fighter (with the exact byte and the exact instruction that
 sets it), and the no-death "free hit" mechanic (found in the collision
-code) -- covering everything in the user's original hint except one
-detail: what specifically *arms* the returning-captive sequence (as
-opposed to completing it at `rom:92B3`) is still open, since
-`ram_1E43`/`ram_1E8B`/`ram_1E12` are shared by more than one animation
-in this ROM and isolating the one specific kill event that starts this
-one wasn't reached this pass.
+code). One detail was still open at the end of this pass: what
+specifically *arms* the returning-captive sequence, as opposed to
+completing it at `rom:92B3`. See the next section for how that closed,
+and for a real surprise in what the answer turned out to be.
+
+## `run-02.inp`: a second, targeted recording closes the last open piece -- and it isn't what this project guessed
+
+The user made a short follow-up recording (~4 waves, confirmed at
+10,330 frames via the same length-check discipline as `run-01.inp`,
+`tools/probe-len02.lua`) specifically to catch a capture-and-merge early,
+aimed squarely at the one open detail from the previous pass.
+
+Tapping the whole known state chain across this much shorter file
+(`tools/probe-run02.lua`: `CaptureAttemptTimer`, `CapturingEnemyIndex`,
+`ram_1E43`/`ram_1E8B`/`ram_1E12`, `DualFighterFlag`, the score/spawn-flag
+byte) found a capture-arm at frame 3,568 and `DualFighterFlag` set at
+frame 5,007 -- a clean ~1,400-frame window between them, far more
+tractable than hunting through the 104,454-frame original.
+
+Narrowing to the two real `ram_1E12` writes in that window (one clears
+it, one sets it to 5 from `rom:9503`, inside `sub_94D2`) traced back the
+actual arm sequence: **`rom:sub_90DE`**, which runs every frame while
+`CaptureAttemptTimer` sits in a specific mid-countdown band, comparing
+`PlayerX` against `CaptureOriginX` (`ram_64`, newly named -- the X
+position saved at the instant of arming). If the player has maneuvered
+back within 12 pixels of where the capture began, this converts the
+attempt directly into the returning-captive sequence.
+
+**This is not the mechanic this project had guessed at.** The whole
+previous pass had been implicitly assuming (and the user's original
+hint had been read as describing) a kill-based rescue: shoot the boss
+while it's diving with a captive attached, get the escort back. No
+code path matching that was ever found in either recording. What's
+actually in this ROM: **reposition your ship back under the beam before
+the capture finishes, and you get the ship back directly -- no capture
+text, no life lost, straight to a merge.** Screenshotted the whole
+sequence in run-02.inp to confirm: no "FIGHTER CAPTURED" text appears
+anywhere (checked at frames 3,600/3,628/3,660, all clean -- contrast
+with *every single* capture in `run-01.inp` showing that text within 60
+frames), the ship-icon lives count is unchanged through the beam's
+release around frame 3,768, and the dual-fighter's wider silhouette is
+directly visible on screen by frame 5,007.
+
+Whether this reposition-based reclaim is the *only* path to a
+dual-fighter in this ROM, or just the one both recordings happened to
+show, is not fully settled -- but no evidence for a kill-based path has
+turned up anywhere, despite two recordings and substantial tracing time
+looking for one. The user's original recollection (formation-kill vs.
+diving-kill) most likely describes what this mechanic feels like from
+the player's seat -- reacting to the beam, getting the ship back --
+rather than a literal kill-triggered branch in the code.
 
 ## What's still open
 
@@ -543,14 +588,18 @@ one wasn't reached this pass.
   a way that would defeat a flat frequency count -- but a real, cheap
   data point in one direction rather than an open guess in either.
 * ~~The tractor-beam capture-vs-formation-kill branch from the user's
-  second hint~~ -- **RESOLVED, see "The tractor beam, solved" above.**
-  The user's own correction (dual-fighter for most of the run, not a
-  formation-vs-diving kill split) redirected this away from a wrong
-  circumstantial guess and toward the real, directly-confirmed
-  mechanism: `DualFighterFlag` (`ram_1E11`), where it's set
+  second hint~~ -- **FULLY RESOLVED**, in two stages: "The tractor
+  beam, solved" found `DualFighterFlag` (`ram_1E11`), where it's set
   (`rom:92B3`), and where it's cleared on a survivable hit
-  (`rom:sub_D1D3`). One detail remains open: what specifically arms the
-  returning-captive sequence in the first place (as opposed to
-  completing it at `rom:92B3`).
+  (`rom:sub_D1D3`); a second, user-made recording (`run-02.inp`) then
+  found what arms the sequence in the first place (`rom:sub_90DE`) --
+  and it turned out to be a proximity-based reclaim window, not a
+  kill-based rescue as this project had guessed. See "`run-02.inp`" for
+  the full story and the surprise.
+* Whether the `run-02.inp` reposition-based reclaim is the *only* path
+  to a dual-fighter in this ROM, or just the one both recordings
+  happened to show -- no evidence for a kill-based rescue path has
+  turned up in either recording, but that's not the same as ruling one
+  out.
 * The private reference source stays unconsulted, per the plan -- see
   `README.md`.
