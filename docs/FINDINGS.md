@@ -137,11 +137,14 @@ role the Dig Dug user's own gameplay hints played in that project:
   whatever decides "released ship becomes a hostile flying at the
   player" vs. "released ship joins as a synchronized dual-fighter," keyed
   on whatever state the capturing flagship was in at the moment of its
-  death. **PARTIALLY INVESTIGATED -- see "The tractor beam, partially
-  traced" further down.** The capture-attempt sequence itself (a diving
-  enemy arming a 180-frame countdown once in range) is found and
-  live-verified; the specific "which released state means what" branch
-  isn't yet.
+  death. **RESOLVED -- see "The tractor beam, solved" further down.**
+  The "formation-kill vs. diving-kill" framing turned out not to be the
+  real mechanism (a specific circumstantial guess along those lines was
+  made and then retracted); the real one, directly confirmed on screen
+  and in the collision code: getting hit while a rescued escort is
+  attached costs the escort, not a life -- matching the user's own
+  fuller description (dual-fighter for most of a 37-wave run, one hit
+  reverting it to single) once that arrived.
 
 ## First live pass: BCD arithmetic found by grepping for `SED`, not by guessing
 
@@ -397,85 +400,99 @@ reaches. If play had continued, the value should climb back to a flat
 `+1,600` again around wave 50 (the next time the cycle reaches 4) --
 not checked live, since `run-01.inp` ends at wave 36.
 
-## The tractor beam, partially traced: the capture attempt directly confirmed, the release branch not yet
+## The tractor beam, solved: capture, rescue, and the "free hit" all directly confirmed
 
-Went after the user's second hint next. Found and directly confirmed the
-real capture mechanism on screen, but not yet the specific behavioral
-split (formation-kill releases a hostile solo ship; diving-kill forms a
-dual-fighter) the hint described -- documented honestly as strong partial
-progress rather than stretched to look finished.
+Went after the user's second hint next, through three rounds of
+correction from the user's own live-play ground truth -- each one worth
+recording because each fixed a wrong assumption this project had made
+from code alone.
 
-**The capture-attempt sequence, found by tracing forward from a diving
-enemy's own state machine.** `rom:sub_903E` runs on a diving enemy each
-frame; once it has descended past a fixed depth (`ram_1E63,Y >= $78`),
-it arms `CaptureAttemptTimer` (`ram_00B4`, newly named) to 180, saves
-that enemy's index into `CapturingEnemyIndex` (`ram_005C`, newly named),
-and plays two cue sounds -- reads cleanly as "this enemy is now in
-tractor-beam range, start the beam." The timer ticks down once per frame
+**Round 1: the capture-attempt sequence, found by tracing forward from a
+diving enemy's own state machine.** `rom:sub_903E` runs on a diving
+enemy each frame; once it has descended past a fixed depth
+(`ram_1E63,Y >= $78`), it arms `CaptureAttemptTimer` (`ram_00B4`) to
+180, saves that enemy's index into `CapturingEnemyIndex` (`ram_005C`),
+and plays two cue sounds. The timer ticks down once per frame
 (`rom:sub_9081`), twice per frame once `Wave >= 18` (a real, if minor,
-difficulty-scaling detail -- the window gets shorter at higher waves),
-and its expiry point calls a routine that turns out to be a dead end
-(`rom:sub_D3D1`, chased and confirmed to be nothing but the shared
-sound-channel-silence cleanup used everywhere in this ROM, not anything
-capture-specific) before reassigning the capturing enemy's own state as
-it returns to formation.
+difficulty-scaling detail).
 
-**Directly confirmed on screen, after the user corrected an assumption
-this project was making.** The user confirmed live that captures
-happened "a few times early on in the run" -- so instead of relying on
-the two rare score/spawn-flag events already found, tapped every write
-to `CaptureAttemptTimer`/`CapturingEnemyIndex` across the whole early
-game (`tools/probe-capture2.lua`, frames 0-40,000, `-nothrottle`
-throughout given the recording's length, per standing project practice).
-Found **five** capture-arm events, not two, reusing two formation slots
+**Round 2: the user corrected the scope ("a few times early on"), and
+the actual capture was directly confirmed on screen.** Tapped every
+write to `CaptureAttemptTimer`/`CapturingEnemyIndex` across the whole
+early game (`tools/probe-capture2.lua`, frames 0-40,000, `-nothrottle`
+throughout, per standing practice for a recording this long). Found
+**five** capture-arm events, not the two this project had found via
+score/spawn-flag taps alone, reusing two formation slots
 (`CapturingEnemyIndex` = `$1A` twice, `$11` twice, `$23` once).
 Screenshotted the aftermath of all five: **every one shows the actual
 on-screen "FIGHTER CAPTURED" text and tractor-beam graphic** (a striped
-triangle reaching from the diving boss down to the player), about 60
-frames after the depth-threshold arm -- well inside the 180-frame
-countdown, confirming there's a separate, faster, still-unfound beam/
-player collision check distinct from the countdown's own natural expiry.
-Also directly confirmed: **getting captured costs a life exactly like
-dying** (a "READY" respawn prompt follows immediately, and the ship-icon
-lives count drops by one) -- not survivable once the beam connects,
-short of destroying the diver first.
+triangle from the diving boss to the player), about 60 frames after the
+depth-threshold arm -- inside the 180-frame countdown, confirming a
+separate, faster beam/player collision check exists. Also confirmed:
+**getting captured costs a life exactly like dying** (a "READY" respawn
+prompt, the ship-icon lives count drops by one).
 
-**A real, promising lead, followed to a live-verified but still-
-circumstantial end.** `CapturingEnemyIndex` gets read back exactly once,
-at `rom:sub_D36C` -- called from the two `CPY #$28` score/spawn branches
-this project had *already* mapped while solving the wave-36 hint
-(`rom:D01C`, `rom:D244`), both of which award 1,000 points and spawn a
-replacement enemy with state `$0B`. Killing the enemy at the fixed array
-slot `$28` reaches back through `CapturingEnemyIndex` and adjusts the
-*original capturing enemy's* own hit-state (`ram_1DD3,Y -= 13`) --
-strongly suggesting slot `$28` is a reserved position tied specifically
-to a captured/escorted entity, linked back to whichever enemy captured
-it. Sequencing frame numbers against the game's own resets (at least 3
-apparent game-over/restart events show up in the same window, each
-zeroing `CapturingEnemyIndex` from `rom:B145`) makes the frame-23,569
-capture (wave 1) and the already-mapped `CPY #$28` kill at frame 26,758
-(wave 2, +1,000 points) look like the same continuity -- i.e. that
-specific capturing boss was probably killed via the slot-`$28` branch
-shortly after capturing, which would make the 1,000-point/spawn-flag-
-`$0B` outcome the "released as hostile" case from the user's hint.
-**Circumstantial, not proven** -- still no direct tap connecting one
-specific capture to its one specific resolution. The companion event this
-project was hoping would be the diving-kill case (`rom:D2C2`, the clean
-flat-1,600-point escorted-boss path found while solving the wave-36
-hint) never actually fired anywhere in `run-01.inp` -- only its close
-cousin at `rom:D2BF` (the 800-point path) fired, once, at wave 1.
+At this point the project made a guess it shouldn't have: `CapturingEnemyIndex`
+gets read back at `rom:sub_D36C`, called from the `CPY #$28` score/spawn
+branch already mapped while solving the wave-36 hint (`rom:D01C`,
++1,000 points, spawn-flag `$0B`). Sequencing frame numbers against the
+game's own early resets made one specific capture and that specific
+`CPY #$28` kill look like the same continuity, and this got written up
+as "probably the released-as-hostile case" -- a guess from timing
+adjacency alone, flagged as circumstantial at the time.
 
-**Net for this pass:** the actual capture mechanic is now directly
-confirmed on screen ("FIGHTER CAPTURED", the beam graphic, the life
-cost, five real occurrences instead of the two originally assumed), plus
-a specific, testable connection between the score code already mapped
-and slot `$28`'s special status -- but the hostile-vs-escort branch
-itself is still not directly observed, since the recording never
-produced the diving-kill/1,600-point case to compare against. The most
-likely next step is a *live-tagged* write-tap on `ram_1F77` at the
-moment a slot-`$28` enemy spawns (rather than more
-static tracing), watching what state value it's actually given and
-whether that state is what other code branches on for the two outcomes.
+**Round 3: the user gave the real ground truth ("dual fighter for most
+of the 37-wave run, one hit brings it back to single"), and the earlier
+guess turned out to be checking the wrong branch entirely.** A wide
+periodic screenshot pass across the *whole* recording
+(`tools/probe-dualfighter.lua`, every 4,000 frames, `-nothrottle`)
+followed by cropped/upscaled comparisons made the dual-fighter's wider
+two-ship silhouette directly visible: single at wave 5 (frame 36,000),
+dual by wave 12 (frame 52,000), still dual at wave 26 (frame 79,950),
+single again by wave 28 (frame 84,000). Binary-searching the transition
+(`tools/probe-narrow2.lua` and finer follow-ups) landed the hit itself
+at **frame ~80,300** -- an explosion sprite is directly visible right on
+the ship at that exact frame.
+
+With confirmed single/dual reference frames in hand, a cluster analysis
+(bytes consistent within each pair of same-state frames, differing
+between the two states -- across zero page, `$1D00-$1FFF`, and
+`$2700-$27FF`, not just zero page) isolated **`DualFighterFlag`
+(`ram_1E11`, newly named)**: 0 when single, 5 when dual, matching all
+four reference frames exactly. A direct PC-tagged write-tap confirmed
+where it's set: **`rom:92B3`**, the tail end of a multi-stage "returning
+captive" animation inside `rom:sub_9250` (called every frame from the
+main loop, gated on `ram_1E43` reaching `$50`, then `ram_1E8B` reaching
+`$AB`, then `PlayerX` (`ram_1E5A`, newly named) reading exactly `$49`).
+Both real occurrences of this write in the first 55,000 frames (frame
+13,953 and frame 37,713) fire from this exact instruction -- the first
+short-lived (reverts by frame 14,964), the second the long-lived one
+that persists from wave 5 through wave 26, genuinely "most of the run"
+once the early false-start games settle into the long sustained session.
+**Neither lines up with a `$0B`/`CPY #$28` event nearby** -- the earlier
+circumstantial guess was checking the wrong branch, and the comment at
+`rom:9065` has been corrected in place to say so rather than left
+looking right by accident.
+
+**What being hit while dual-fighter actually does, confirmed from the
+collision code itself, not just inference:** `rom:sub_D0C7` (the
+player-enemy proximity check, comparing enemy X positions against
+`PlayerX`) calls `rom:sub_D1D3` on a close approach, which clears
+`DualFighterFlag` back to 0 instead of running the normal death path --
+exactly "the first hit only brings it back to a single fighter," found
+in the actual collision-resolution code rather than assumed from the
+visual evidence alone.
+
+**Net for this pass:** the full tractor-beam lifecycle is now directly
+confirmed -- capture (with its on-screen text and life cost), rescue
+into a dual-fighter (with the exact byte and the exact instruction that
+sets it), and the no-death "free hit" mechanic (found in the collision
+code) -- covering everything in the user's original hint except one
+detail: what specifically *arms* the returning-captive sequence (as
+opposed to completing it at `rom:92B3`) is still open, since
+`ram_1E43`/`ram_1E8B`/`ram_1E12` are shared by more than one animation
+in this ROM and isolating the one specific kill event that starts this
+one wasn't reached this pass.
 
 ## What's still open
 
@@ -525,11 +542,15 @@ whether that state is what other code branches on for the two outcomes.
   sprite sheet could still be compressed or interleaved with metadata in
   a way that would defeat a flat frequency count -- but a real, cheap
   data point in one direction rather than an open guess in either.
-* The tractor-beam capture-vs-formation-kill branch from the user's
-  second hint -- see "The tractor beam, partially traced" above. The
-  capture-attempt window and its enemy-side state are found; the
-  player-side capture flag and the hostile-vs-escort release split are
-  not. A live write-tap on `ram_1F77` at slot-`$28` spawn moments is the
-  concrete next step.
+* ~~The tractor-beam capture-vs-formation-kill branch from the user's
+  second hint~~ -- **RESOLVED, see "The tractor beam, solved" above.**
+  The user's own correction (dual-fighter for most of the run, not a
+  formation-vs-diving kill split) redirected this away from a wrong
+  circumstantial guess and toward the real, directly-confirmed
+  mechanism: `DualFighterFlag` (`ram_1E11`), where it's set
+  (`rom:92B3`), and where it's cleared on a survivable hit
+  (`rom:sub_D1D3`). One detail remains open: what specifically arms the
+  returning-captive sequence in the first place (as opposed to
+  completing it at `rom:92B3`).
 * The private reference source stays unconsulted, per the plan -- see
   `README.md`.
