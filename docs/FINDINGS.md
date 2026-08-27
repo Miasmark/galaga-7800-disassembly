@@ -609,6 +609,22 @@ merge's completion. What's still missing is the specific instruction
 that connects the kill to the freeze ending, and that gap is being
 left open rather than filled with a fourth guess.
 
+**Visually confirmed, on direct instruction: the boss and its captive
+fly in formation the whole time.** Screenshotted every 20 frames from
+the moment the new ship respawns (frame 3,900, "READY" still on screen)
+through the kill (frame 4,609) and found the same two-sprite pair (a
+white moth-shaped enemy directly paired with a smaller blue enemy,
+always adjacent, moving together) visible continuously across that
+entire ~700-frame span -- present the instant the new ship spawns in,
+still paired through several loops around the formation area, still
+diving together right up to nine frames before the kill. This is direct
+visual support for the basic shape of the user's original hint: a boss
+carries a captured fighter with it, visibly, until something releases
+it. Not yet settled: whether the paired sprite (rendered blue, not the
+player's own white/red) is drawn from the player's own ship graphics or
+a separate escort tile -- a detail worth checking before assuming which
+it is.
+
 ## What's still open
 
 * Whether the value really does climb back to 1,600 around wave 50, as
