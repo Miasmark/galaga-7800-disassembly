@@ -248,21 +248,61 @@ game progress).
 (a real countdown timer, a real entry-window condition, a real timeout
 path), and one more wrong-looking byte was caught and written up as wrong
 rather than left as an untested guess -- but the wave-number counter
-itself is still unfound, and the wave-36 scoring-drop question is
-therefore still open.
+itself is still unfound.
+
+## The real score display, found and screenshot-verified -- and a bigger surprise
+
+Following up on the manual's own note ("waves display at lower right")
+found the on-screen digit-rendering code the same way `ram_0043`'s
+(unrelated) render use was found earlier: grepping for the digit-split
+idiom (`AND #$0F` plus four `LSR`s). That led to `rom:sub_B406`, and this
+time the check wasn't just live RAM behavior -- it was a direct
+screenshot comparison. Captured a screenshot *and* a full RAM dump at the
+exact same frame, twice, at two different points in `run-01.inp` where
+the on-screen score read 28,200 and 32,250. Both times, five consecutive
+bytes at `$275F`-`$2763` held those exact digits, byte for byte, most
+significant first (`ScoreDigit0`-`ScoreDigit4`). This is about as solid
+as live confirmation gets in this project -- not a behavioral pattern
+match, a literal byte-for-byte comparison against what was on screen at
+that instant.
+
+It also *retracts* last pass's `ScoreHi`/`Mid`/`Lo` naming for
+`ram_2724`-`ram_2726`. That accumulator is still real and still fires
+every frame as documented, but it isn't backing the on-screen score --
+tracing the newly-confirmed digit bytes across the *entire* recording
+shows the score never climbing past roughly 111,000, while the earlier
+accumulator's implied value never matched it at any point either. What
+`ram_2724`-`ram_2726` actually is stays open; the labels were removed
+rather than left wrong.
+
+**The bigger surprise: the wave-36, 200,000+ run the user described does
+not appear to be in `run-01.inp` at all.** Traced the confirmed score
+bytes across the whole recording, start to finish -- the peak is well
+under 111,000, nowhere near 200,000. Screenshots taken ~30 seconds before
+the recording's actual end (per the user's own suggestion, to catch the
+last life lost) show a score around 28,000-32,000 and a small unrelated
+digit (3-5, still unidentified) in the corner, not wave 36. Either that
+specific high-score run happened in a different, uncaptured session, or
+this recording's "longest run" isn't in the final segment the way it was
+assumed to be. Flagging this plainly rather than continuing to search
+this recording for a moment that may not be in it -- a fresh, shorter
+recording captured right around that specific run (if reproducible)
+would settle the wave-number question far faster than more analysis of
+this one.
 
 ## What's still open
 
-* The real wave-number counter -- three candidates now checked and set
-  aside (`ram_0042`/`0043`, `ram_0046`, `ram_2775`); still unfound. The
-  manual's own note that "waves display at lower right" suggests looking
-  for the on-screen digit-rendering code next, which would locate the
-  byte definitively rather than by behavioral guesswork.
-* Whether `ram_2724`-`ram_2726` (`ScoreHi`/`Mid`/`Lo`) is really the
-  single master on-screen score, or a smaller sub-accumulator that feeds
-  into something bigger not yet found -- the mechanism is now
-  live-confirmed active, but the value it implies reads low for the
-  session length and wave reached.
+* The real wave-number counter -- still unfound. Three earlier candidates
+  were set aside (`ram_0042`/`0043`, `ram_0046`, `ram_2775`), and the
+  actual high-wave run this project was trying to locate doesn't appear
+  to be present in `run-01.inp` at all (see above) -- a recording that
+  actually contains a high-wave moment is the fastest way to close this.
+* The small, still-unidentified digit (ranging 3-5 in this recording,
+  confirmed NOT to be lives -- those are ship icons, bottom-left, per the
+  user) sitting in the same general screen area the wave number was
+  expected in.
+* What `ram_2724`-`ram_2726` actually represents, now that it's confirmed
+  not to be the score -- still live-active every frame, still unexplained.
 * What determines that a given wave is a challenge wave in the first
   place -- the countdown-timer window (`ChallengeCountdown`/`ram_0061`)
   is now mapped, but not what schedules it.

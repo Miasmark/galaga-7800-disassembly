@@ -17,6 +17,9 @@
 *.trk
 *.log
 /snap/
+/snap2/
+endgame-zp-*.json
+endgame2-*.json
 
 # Raw memory dumps -- contain copyrighted ROM/RAM bytes, reproducible from
 # a recording + a probe script (see docs/FINDINGS.md for which probe made
