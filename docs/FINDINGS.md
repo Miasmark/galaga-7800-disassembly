@@ -20,6 +20,24 @@ not a finding. Round-trip is byte-identical.
 
 Vectors: `NMI $B15D` `RESET $FF73` `IRQ $B610`.
 
+Manual (mechanics reference, scoring table, enemy behavior):
+https://atariage.com/manual_html_page.php?SoftwareID=2132 -- 4 Command
+Ships total (1 active + 3 in reserve), three difficulty levels (Novice/
+Advanced/Expert). Two enemy types besides the flagship: Drones (blue, 50
+pts lined up / 100 pts diving) and Hornets (red, 80/160). Flagships (yellow)
+score 0 on a first hit (they lose their escort instead) and 150 on the
+second; a *diving* flagship scores 400/800/1600 depending on whether it
+still has 0/1/2 escorts with it. The tractor-beam capture mechanic: a
+flagship can deploy a beam that captures the player's ship -- shooting the
+flagship *while* it's actively capturing rescues the ship and creates a
+synchronized dual-fighter; shooting it after capture completes destroys
+the captured ship too. Bonus stages (formation-only, no return fire) start
+after wave 2 and recur every third wave -- 5 groups of 8 ships, graduated
+per-group point awards, a completion bonus for clearing all 40, and a
+flat per-ship award if the pass is incomplete. Attack speed increases with
+wave number. Facts only, not consulted for anything beyond this summary
+list -- kept separate from the ROM's own bytes throughout the work below.
+
 ## The size question, resolved immediately
 
 Before any code was read, the open question from picking this project was

@@ -63,6 +63,23 @@ python3 ../a7800-toolkit/tools/disasm.py "Galaga (NTSC) (Atari) (1987) (1A0A3EB3
 
 ![Coverage map](docs/img/coverage-map.png)
 
+## Recording a session
+
+Live findings in this project come from replaying a MAME input
+recording (a deterministic button-press log, not video, and not
+copyrighted content) against a PC/frame-tagged Lua probe -- the same
+technique the sibling projects used throughout. `.inp` files aren't
+committed until at least one exists; add them to `.gitignore`'s
+exceptions if that changes.
+
+```
+./"Record Session.command"        # play, Esc to stop -> next free run-NN.inp
+./"Play Recording.command" run-01 # watch a recording play back
+```
+
+Manual (mechanics reference, scoring table, enemy behavior):
+https://atariage.com/manual_html_page.php?SoftwareID=2132
+
 ## Layout
 
 | | |
@@ -71,6 +88,7 @@ python3 ../a7800-toolkit/tools/disasm.py "Galaga (NTSC) (Atari) (1987) (1A0A3EB3
 | `docs/FINDINGS.md` | The narrative -- read this first. |
 | `docs/img/` | `coverage-map.png` (regenerate with `disasm.py --map`). |
 | `tools/` | This project's own probe scripts. |
+| `Play Recording.command`, `Record Session.command` | Double-click launchers for replaying/recording a session (macOS + MAME on `PATH`). |
 
 Not committed (see `.gitignore`): the ROM, the generated `src/rom.asm` and
 `build/`, and the probe scripts' regeneratable output manifests -- all
