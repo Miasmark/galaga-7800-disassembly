@@ -137,7 +137,11 @@ role the Dig Dug user's own gameplay hints played in that project:
   whatever decides "released ship becomes a hostile flying at the
   player" vs. "released ship joins as a synchronized dual-fighter," keyed
   on whatever state the capturing flagship was in at the moment of its
-  death.
+  death. **PARTIALLY INVESTIGATED -- see "The tractor beam, partially
+  traced" further down.** The capture-attempt sequence itself (a diving
+  enemy arming a 180-frame countdown once in range) is found and
+  live-verified; the specific "which released state means what" branch
+  isn't yet.
 
 ## First live pass: BCD arithmetic found by grepping for `SED`, not by guessing
 
@@ -393,6 +397,65 @@ reaches. If play had continued, the value should climb back to a flat
 `+1,600` again around wave 50 (the next time the cycle reaches 4) --
 not checked live, since `run-01.inp` ends at wave 36.
 
+## The tractor beam, partially traced: the capture attempt found, the release branch not yet
+
+Went after the user's second hint next. Found real, new structure, but
+not the specific behavioral split (formation-kill releases a hostile
+solo ship; diving-kill forms a dual-fighter) the hint described --
+documented honestly as partial rather than stretched to look finished.
+
+**The capture-attempt sequence, found by tracing forward from a diving
+enemy's own state machine.** `rom:sub_903E` runs on a diving enemy each
+frame; once it has descended past a fixed depth (`ram_1E63,Y >= $78`),
+it arms `CaptureAttemptTimer` (`ram_00B4`, newly named) to 180, saves
+that enemy's index into `CapturingEnemyIndex` (`ram_005C`, newly named),
+and plays two cue sounds -- reads cleanly as "this enemy is now in
+tractor-beam range, start the beam." The timer ticks down once per frame
+(`rom:sub_9081`), twice per frame once `Wave >= 18` (a real, if minor,
+difficulty-scaling detail -- the window gets shorter at higher waves),
+and its expiry point calls a routine that turns out to be a dead end
+(`rom:sub_D3D1`, chased and confirmed to be nothing but the shared
+sound-channel-silence cleanup used everywhere in this ROM, not anything
+capture-specific) before reassigning the capturing enemy's own state as
+it returns to formation.
+
+**What's missing:** nothing found yet that reads whether the *player's*
+ship was actually caught by the beam during that 180-frame window, or
+sets any flag on the player's own state. This pass only confirms the
+capturing enemy's own side of the sequence.
+
+**A real, promising lead, followed to a live-verified but unresolved
+end.** `CapturingEnemyIndex` gets read back exactly once, at
+`rom:sub_D36C` -- which is called from the two `CPY #$28` score/spawn
+branches this project had *already* mapped while solving the wave-36
+hint (`rom:D01C`, `rom:D244`), both of which award 1,000 points and
+spawn a replacement enemy with state `$0B`. Killing the enemy at the
+fixed array slot `$28` reaches back through `CapturingEnemyIndex` and
+adjusts the *original capturing enemy's* own hit-state
+(`ram_1DD3,Y -= 13`) -- strongly suggesting slot `$28` is a reserved
+position tied specifically to a captured/escorted entity, linked back to
+whichever enemy captured it. Live-checked what this looks like on
+screen: the one `CPY #$28` kill event in the whole recording (frame
+26758, wave 2, the game's very first challenge stage) was screenshotted
+before and after (`tools/probe-spawnflag.lua`) -- a "1000" score popup
+appears exactly as predicted, but the resulting scene (several enemies
+already diving at once) makes it impossible to visually isolate one
+specific newly-spawned ship as either "hostile solo" or "player escort"
+from screenshots alone. The companion event this project was hoping
+would be the diving-kill case (`rom:D2C2`, the clean flat-1,600-point
+escorted-boss path found while solving the wave-36 hint) never actually
+fired anywhere in `run-01.inp` -- only its close cousin at `rom:D2BF`
+(the 800-point path) fired, once, at wave 1.
+
+**Net for this pass:** a real piece of new, live-corroborated structure
+(the capture-attempt window and its wave-based difficulty scaling), and
+a specific, testable connection between the score code already mapped
+and slot `$28`'s special status -- but not the hostile-vs-escort branch
+itself. The most likely next step is a *live-tagged* write-tap on
+`ram_1F77` at the moment a slot-`$28` enemy spawns (rather than more
+static tracing), watching what state value it's actually given and
+whether that state is what other code branches on for the two outcomes.
+
 ## What's still open
 
 * Whether the value really does climb back to 1,600 around wave 50, as
@@ -424,6 +487,10 @@ not checked live, since `run-01.inp` ends at wave 36.
 * Whether any of the nine newly-declared `dat_` blocks are actually
   graphics data rather than parameter tables -- not checked yet.
 * The tractor-beam capture-vs-formation-kill branch from the user's
-  second hint -- not started.
+  second hint -- see "The tractor beam, partially traced" above. The
+  capture-attempt window and its enemy-side state are found; the
+  player-side capture flag and the hostile-vs-escort release split are
+  not. A live write-tap on `ram_1F77` at slot-`$28` spawn moments is the
+  concrete next step.
 * The private reference source stays unconsulted, per the plan -- see
   `README.md`.
