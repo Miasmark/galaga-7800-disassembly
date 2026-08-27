@@ -462,11 +462,14 @@ whether that state is what other code branches on for the two outcomes.
   the cyclical-gate theory predicts -- untestable against this recording
   (it ends at wave 36), the natural target for a second recording that
   reaches further.
-* Whether `ChallengeHitCount`'s single observed excursion (frames
-  ~29,000-30,500 in the original, truncated probe) is the only
-  challenge-stage attempt in the recording, or just the first one caught
-  before the truncation bug was found -- not re-checked against the full
-  104,454-frame range yet.
+* ~~Whether `ChallengeHitCount`'s single observed excursion... is the
+  only challenge-stage attempt in the recording~~ -- **ANSWERED, in
+  passing, while solving the wave-36 hint.** It isn't: `ChallengeHitCountBin`
+  (the same counter's low-order twin) wraps roughly ten times across the
+  full recording (`tools/probe-groupvalue.lua`'s `binCount` column, waves
+  3 through 35), i.e. there were roughly ten group-of-8 challenge-kill
+  bursts total, not the one this project originally caught before finding
+  the truncation bug.
 * The small, still-unidentified digit (ranging 3-5 in the truncated
   window checked so far, confirmed NOT to be lives -- those are ship
   icons, bottom-left, per the user) sitting in the same general screen
@@ -475,11 +478,6 @@ whether that state is what other code branches on for the two outcomes.
   an open identification.
 * What `ram_2724`-`ram_2726` actually represents, now that it's confirmed
   not to be the score -- still live-active every frame, still unexplained.
-* Re-checking anything else this project concluded from "the whole
-  recording" before the true 104,454-frame length was known (the
-  `dat_` block classification pass and the `CHARBASE` search both
-  predate this fix, though neither depended on live data the way the
-  score/wave work did).
 * ~~Whether `CHARBASE` gets set anywhere in this ROM at all~~ --
   **RESOLVED.** `rom:B01D` is its only write in the whole ROM (confirmed:
   no gaps exist, and a full-file grep finds no second writer), and it's a
