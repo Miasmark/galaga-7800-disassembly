@@ -148,12 +148,16 @@ be, live-checked and rejected rather than assumed:
 
 **A strong match for the user's challenge-stage hint, live-corroborated.**
 `rom:D021` increments a BCD counter (`ChallengeHitCount`, `ram_008A`)
-each time it runs, gated by `ram_0061`. Checked against `run-01.inp`
-(`tools/probe-ram-snapshots.lua`): the counter sits at 0 for the first
-~29,000 of the recording's ~35,900 frames, then climbs in a burst over
-about 1,500 frames (0 up to 51), then resets to 0 -- a single, late,
+each time it runs, gated by `ram_0061`. Checked against the first pass
+through `run-01.inp` (`tools/probe-ram-snapshots.lua`, which at this
+point in the project only covered roughly the first 35,900 of the
+recording's real 104,454 frames -- see "Found the wave counter" below):
+the counter sits at 0 for the first ~29,000 of those frames, then climbs
+in a burst over about 1,500 frames (0 up to 51), then resets to 0 -- an
 isolated excursion that lines up with the user's own account of
-attempting a challenge stage near the end of the session. Not fully
+attempting a challenge stage. (Whether this is the only such excursion in
+the full recording, or just the first, hasn't been re-checked against the
+corrected frame range.) Not fully
 decoded (51 exceeds the manual's 40-ships-per-stage figure, so it's
 likely counting something other than a plain kill), and `ram_0061`
 itself -- the gate, referenced from a wide span of code
@@ -190,15 +194,22 @@ play at a high wave number, which leaves real doubt this is the single
 master on-screen score rather than a smaller sub-accumulator -- flagged
 as open, not resolved.
 
-**A likely misidentification, caught rather than asserted -- and a real
-correction to an earlier misread nearby.** A separate BCD-plus-plain-
-binary counter pair (`rom:9DBE`, bytes `ram_0042`/`ram_0043`) looked at
-first read like a strong wave-number candidate -- it resets to 1 (not 0)
-on overflow, alongside several other bytes being cleared, matching "a new
-round is starting." Checked against `run-01.inp` and it only ever reached
-5, with several resets to 0 along the way -- inconsistent with the user's
-report of reaching wave 36 in this same session, and still flagged open
-rather than corrected to a new guess. Separately, `ChallengeHitCount`
+**A rejection that was itself wrong -- caught much later, and for a
+different reason than the byte itself.** A BCD-plus-plain-binary counter
+pair (`rom:9DBE`, bytes `ram_0042`/`ram_0043`) looked at first read like a
+strong wave-number candidate -- it resets to 1 (not 0) on overflow,
+alongside several other bytes being cleared, matching "a new round is
+starting." Checked against `run-01.inp` and it only ever reached 5, with
+several resets to 0 along the way -- inconsistent with the user's report
+of reaching wave 36 in this same session, so it was set aside as rejected.
+**That rejection was wrong, and not because the candidate was bad: the
+probe checking it was silently reading only the first third of the
+recording.** See "Found the wave counter" below for the full story --
+`ram_0042`/`ram_0043` *is* the wave counter after all, and the original
+instinct here (resets to 1, clears sibling bytes, matches "a new round")
+was correct the whole time. Left here rather than deleted, per this
+project's own convention of keeping a wrong conclusion visible next to its
+correction instead of quietly rewriting history. Separately, `ChallengeHitCount`
 itself needed a correction: the first live check read its raw peak byte
 value (`51`) as the count directly, when it's BCD-encoded and the real
 peak was **33** (`0x33`, digits '3' and '3') -- 33 out of the manual's
@@ -207,7 +218,7 @@ not getting a perfect clear almost exactly, and reads as a near-1:1 kill
 count after all rather than the "points in some unit" guess made before
 the correction.
 
-## Mapping the challenge-stage gate: a timer found, the wave number still not
+## Mapping the challenge-stage gate: a timer found
 
 Traced `ram_0061` (the gate at `rom:D021`) back to its source rather than
 guessing at its meaning directly. It's set by a small state machine built
@@ -247,8 +258,10 @@ game progress).
 **Net for this pass:** more of the challenge-stage machinery is mapped
 (a real countdown timer, a real entry-window condition, a real timeout
 path), and one more wrong-looking byte was caught and written up as wrong
-rather than left as an untested guess -- but the wave-number counter
-itself is still unfound.
+rather than left as an untested guess. The wave-number counter itself
+turned out to already be in hand (`ram_0042`/`ram_0043`, rejected two
+sections up) -- just checked against a probe that was quietly reading
+only the first third of the file. See below.
 
 ## The real score display, found and screenshot-verified -- and a bigger surprise
 
@@ -268,47 +281,91 @@ that instant.
 
 It also *retracts* last pass's `ScoreHi`/`Mid`/`Lo` naming for
 `ram_2724`-`ram_2726`. That accumulator is still real and still fires
-every frame as documented, but it isn't backing the on-screen score --
-tracing the newly-confirmed digit bytes across the *entire* recording
-shows the score peaking around 32,000, while the earlier accumulator's
-implied value never matched it at any point either. What
+every frame as documented, but it isn't backing the on-screen score. What
 `ram_2724`-`ram_2726` actually is stays open; the labels were removed
 rather than left wrong.
 
-**The wave-36, 200,000+ run the user described genuinely isn't in
-`run-01.inp` -- resolved, not a bug.** Traced the confirmed score bytes
-across the whole recording (peak ~32,000, nowhere near 200,000), checked
-with a 17-point screenshot sweep across the entire file, and -- when the
-user reasonably asked whether MAME's `-nothrottle` acceleration could be
-desyncing the accelerated headless runs from what they saw watching it --
-re-ran the identical file in real time (no acceleration, windowed, full
-audio, matching `Play Recording.command`'s own invocation) and got
-byte-for-byte identical values at every sampled frame. That ruled out
-desync cleanly: MAME's playback is genuinely deterministic here regardless
-of speed. The actual explanation, confirmed by the user afterward: this
-recording simply isn't the full session -- it stops well short of the
-wave-36 moment, which was never captured to this file. The data in this
-file stays valid for what it covers (waves roughly 1-4, scores up to
-~32,000); it just isn't evidence that higher waves don't exist. A
-recording that actually reaches that point is the fastest remaining path
-to the real wave-number byte.
+## Found the wave counter -- after finding and fixing a bug in this project's own probes
+
+The "score never exceeds ~32,000, the wave-36 run isn't in this
+recording" conclusion two commits ago was wrong, and wrong for a
+specific, findable reason: **every probe script in this project, from
+the very first one, had been calling `MACHINE:exit()` based on a wrong
+belief about where `run-01.inp` ends.** An early exploratory run used an
+exit threshold around frame 35,900 (an arbitrary early guess); MAME's
+own "Total playback frames: N" summary line, printed at whatever point
+the *process* stops (not necessarily where the recording's real content
+ends), then reported a number in that same neighborhood -- and that
+number was mistaken for the file's true length. Every subsequent probe
+inherited a similarly-sized exit threshold, so every one of them
+"confirmed" the same wrong boundary, including the real-time re-run that
+was used to rule out a `-nothrottle` desync (that test was internally
+valid -- both runs agreed with each other -- it just wasn't testing far
+enough to matter).
+
+The user gave the fix directly: they'd watched past that point using
+`Play Recording.command` *without providing any input themselves*, and
+the game kept going regardless. That's the tell -- if the game keeps
+progressing with nobody touching the controls, the recording's real
+content must extend further than assumed, since `Play Recording.command`
+doesn't feed anything after the file ends. Removed the artificial exit
+threshold, replaced it with one far beyond any prior guess (300,000
+frames), and reran. The recording's real length is **104,454 frames**
+(~29 minutes, not ~10) -- playback exhausts there and the game freezes on
+a static state, almost certainly the last life being lost. This project
+had only ever analyzed the first third of the file.
+
+**With the real range, `ram_0042`/`ram_0043` (`Wave`/`WaveBCD`) is
+confirmed as the wave counter, exactly as first guessed.** Sampling every
+6000 frames from 6000 to 102000, `ram_0042` (raw binary) and `ram_0043`
+(properly BCD-decoded -- high nibble times 10 plus low nibble, not its
+raw byte value, which was the error that made this pair look like it
+"only reached 5" during the truncated-data pass) agree with each other
+exactly at every single checkpoint, and both track the confirmed score
+digits the way a wave counter should: value 16 at a score around
+111,520, value 28 at a score around 201,980 -- matching the user's own
+recollection (~wave 17 at ~111K, wave 28 at ~200K) almost exactly, wave
+28 landing exactly on the number given. `rom:sub_9DBE`'s reset-to-1 (not
+0) on BCD overflow, previously read as "probably a new-wave reset, but
+not proven," is now confirmed as exactly that.
+
+**Lesson for the toolkit**, written up in `docs/pitfalls.md`: never trust
+"traced across the whole recording" from a probe whose own exit condition
+was chosen without independently verifying the file's real length first
+-- a `.inp` playback that appears to end is not the same as the file
+actually being that short, especially if the game can keep running
+without further recorded input.
 
 ## What's still open
 
-* The real wave-number counter -- still unfound. Three earlier candidates
-  were set aside (`ram_0042`/`0043`, `ram_0046`, `ram_2775`), and the
-  actual high-wave run this project was trying to locate doesn't appear
-  to be present in `run-01.inp` at all (see above) -- a recording that
-  actually contains a high-wave moment is the fastest way to close this.
-* The small, still-unidentified digit (ranging 3-5 in this recording,
-  confirmed NOT to be lives -- those are ship icons, bottom-left, per the
-  user) sitting in the same general screen area the wave number was
-  expected in.
+* **The original wave-36, 1600->1000-point-value hint -- now directly
+  testable and the natural next target.** With the real score digits, the
+  real wave counter, and the real 104,454-frame range all confirmed, a
+  probe that watches the bonus-stage score-add routine specifically
+  around the point `ram_0042`/`ram_0043` cross into the low-to-mid 30s
+  can check the user's report directly, rather than inferring it from a
+  table shape the way the first pass here assumed.
+* Whether `ChallengeHitCount`'s single observed excursion (frames
+  ~29,000-30,500 in the original, truncated probe) is the only
+  challenge-stage attempt in the recording, or just the first one caught
+  before the truncation bug was found -- not re-checked against the full
+  104,454-frame range yet.
+* The small, still-unidentified digit (ranging 3-5 in the truncated
+  window checked so far, confirmed NOT to be lives -- those are ship
+  icons, bottom-left, per the user) sitting in the same general screen
+  area the wave number was originally expected in -- now a lower
+  priority since the real wave counter is confirmed elsewhere, but still
+  an open identification.
 * What `ram_2724`-`ram_2726` actually represents, now that it's confirmed
   not to be the score -- still live-active every frame, still unexplained.
 * What determines that a given wave is a challenge wave in the first
   place -- the countdown-timer window (`ChallengeCountdown`/`ram_0061`)
   is now mapped, but not what schedules it.
+* Re-checking anything else this project concluded from "the whole
+  recording" before the true 104,454-frame length was known (the
+  `dat_` block classification pass and the `CHARBASE` search both
+  predate this fix, though neither depended on live data the way the
+  score/wave work did).
 * Whether `CHARBASE` gets set anywhere in this ROM at all -- the one
   write found so far (`rom:B01D`) is inside a generic zero-clearing
   boot loop, not a deliberate graphics-sheet assignment, and no second
