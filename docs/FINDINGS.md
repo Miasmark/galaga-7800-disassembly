@@ -723,6 +723,77 @@ boss special. One small gap remains open (the ~255-frame delay between
 secondary counter, `ram_1ED3`, needing its own reset from an earlier
 waiting cycle) -- but the causal chain the user asked about is closed.
 
+## Cross-checking against a private reference
+
+The user gave the go-ahead to consult the project's private historical
+reference source at this point -- both original hints solved, the
+remaining open items down to smaller mysteries. Following the same
+discipline this session used on the two prior projects in this series: a
+privately-held, unlicensed historical source for this game (original
+1987 developer source, not a fan disassembly, per its own file naming --
+`GMAIN.S`, `GSCORE.S`, `GMIV.S`, and so on) was used strictly to generate
+hypotheses and sanity-checks against what this project already found or
+still had open -- never quoted, never copied into this repo, and every
+correction rederived independently from this project's own bytes and
+live probes before being written down anywhere.
+
+**Strong structural corroboration on the tractor beam.** The reference's
+`CAPBOS1` register (tracks which enemy is holding a captive) matches
+`CapturingEnemyIndex` (`ram_005C`) closely enough to call it the same
+mechanism under a different name. Its `FINDFING` routine -- searching for
+a replacement capturing enemy if the original is no longer available --
+matches `rom:sub_8FAC`'s fixed-slot fallback search almost exactly. A
+distinct "UNITE MODE" for the player ship matches `DualFighterFlag`
+(`ram_1E11`). None of this changed anything already found; it's
+independent confirmation that the structure this project derived purely
+from live probes and screenshots was reading the real mechanism
+correctly.
+
+**A specific hypothesis tested and rejected -- the useful kind of
+disagreement.** The reference names a structure `P1BONUS`/`P2BONUS` and
+describes it as a running extra-life bonus accumulator, distinct from
+the score. That looked like a strong candidate for this project's own
+lingering mystery byte, `ram_2724`-`ram_2726` (flagged open ever since
+an earlier pass concluded it wasn't the real score display). Tested
+directly rather than taken on trust: a live write-tap on the byte's
+high-order digit pair, run against the full, correctly-lengthed
+`run-01.inp`, caught two boundary crossings; a screenshot at each exact
+frame showed the on-screen score reading precisely 10x the packed
+value (10018 -> 100,180 and 20104 -> 201,040). **It's the master score
+itself, packed in BCD, not a bonus-life tracker** -- the reference's
+suggested identity didn't survive the check. Worth noting: the earlier
+"not the score" conclusion this project reached on its own was *also*
+a casualty of the same truncated-recording bug that caused the
+wave-number rejection (`rom:9DBE`) -- both retracted in place, both
+independently, neither one because the reference said so.
+
+**A genuine, unreconciled disagreement on the tractor beam's exact
+release trigger.** This project's own live evidence is about as direct
+as evidence gets: a write-tap caught `ram_0088` (a repeating
+dive-group-remaining counter) hit exactly zero in the same instant as a
+kill the user identified by watching the recording, which is also the
+exact frame the captive's own state machine (`ram_1F9F`) advances out of
+its waiting state. The reference's `GOHOME`/`FINDFING` code, read via
+the same indirect summarization this cross-check used throughout,
+suggests a broader condition -- arrival-triggered, checked against
+whether *any* boss remains anywhere in the formation, not a narrower
+per-dive-group count. These aren't necessarily contradictory (a
+formation-wide check and a same-instant kill can coincide, and the
+indirect reading of the reference may be incomplete), but they aren't
+confirmed to be the same claim either. Left honestly un-reconciled,
+matching this project's own established practice: `ram_0088`'s role is
+kept as directly confirmed by this project's own live evidence, while
+whether it's *identical* to what the reference calls the formation-boss
+check, or a distinct, 7800-port-specific narrowing of it, stays open.
+
+**Lesson for the toolkit, in the same spirit as the earlier one from
+this series:** a private reference is exactly as useful for generating
+a testable hypothesis as it is useless for skipping the test. The
+`P1BONUS` guess would have been a plausible, confident-sounding label to
+just adopt -- it fit the byte's behavior (live-active, BCD, per-frame)
+well enough on its own. Only a direct, frame-exact check against this
+ROM's own screenshots caught that it was wrong.
+
 ## What's still open
 
 * Whether the value really does climb back to 1,600 around wave 50, as
@@ -746,8 +817,13 @@ waiting cycle) -- but the causal chain the user asked about is closed.
   covered waves 1-5, so of course the on-screen value read as a single
   digit in the 3-5 range. Confirming `Wave`/`WaveBCD` later made this
   look like two different things when it was one all along.
-* What `ram_2724`-`ram_2726` actually represents, now that it's confirmed
-  not to be the score -- still live-active every frame, still unexplained.
+* ~~What `ram_2724`-`ram_2726` actually represents~~ -- **RESOLVED, via
+  the reference cross-check.** It IS the master score after all
+  (`ScoreBCDHi`/`Mid`/`Lo`, newly named), packed BCD at a x10-per-unit
+  scale, independently confirmed against two live screenshot checks.
+  The earlier "not the score" conclusion was itself a casualty of the
+  truncated-recording bug (see "Cross-checking against a private
+  reference").
 * ~~Whether `CHARBASE` gets set anywhere in this ROM at all~~ --
   **RESOLVED.** `rom:B01D` is its only write in the whole ROM (confirmed:
   no gaps exist, and a full-file grep finds no second writer), and it's a
@@ -806,5 +882,8 @@ waiting cycle) -- but the causal chain the user asked about is closed.
   resolve this; it's flagged as a live-observed difference from the
   written description, the same way a private reference's mismatches
   have been treated elsewhere in this project.
-* The private reference source stays unconsulted, per the plan -- see
-  `README.md`.
+* ~~The private reference source stays unconsulted, per the plan~~ --
+  **Consulted, on the user's go-ahead, with both original hints already
+  solved.** See "Cross-checking against a private reference" above for
+  what it corroborated, what it suggested and this project tested
+  independently and rejected, and what's left genuinely disagreeing.

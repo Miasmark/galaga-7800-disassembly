@@ -24,15 +24,17 @@ same knowledge.
 **A deliberate methodology note for this project specifically:** a
 privately-held, unlicensed historical source for this game exists (the
 same archive Centipede's and Dig Dug's reference sources came from), and
-it will be used the same way -- as a check, never as the origin of a
-finding, and never quoted or copied in. Unlike those two projects, this
-one is holding off on even looking at it until the independent work below
-is substantially done, specifically so that whatever agrees or disagrees
-can be compared against a genuinely independent effort rather than one
-that had already been steered by a peek partway through. Dig Dug's
-cross-check turned up real, interesting differences between the reference
-and the shipped ROM -- see its `docs/pitfalls.md` lesson on that -- and
-the goal here is a cleaner version of that same experiment.
+it was used the same way -- as a check, never as the origin of a finding,
+and never quoted or copied in. Unlike those two projects, this one held
+off on even looking at it until both of the user's original gameplay
+hints were fully solved independently, specifically so that whatever
+agreed or disagreed could be compared against a genuinely independent
+effort rather than one that had already been steered by a peek partway
+through. The cross-check is written up in `docs/FINDINGS.md`: strong
+structural corroboration on the tractor-beam mechanism, one specific
+hypothesis (a suggested identity for a mystery byte) tested directly
+against this ROM's own bytes and found wrong, and one genuine,
+unreconciled disagreement left open rather than forced to agree.
 
 Working discipline, same as the sibling projects: every claim about what a
 byte range does should be checked live before it's trusted, not just
