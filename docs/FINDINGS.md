@@ -671,17 +671,57 @@ it -- this is the code making the captured fighter visually follow a
 living boss, directly explaining the ~700-frame formation-flying
 screenshotted above.
 
-**What this doesn't settle:** the exact link from "no living captor
-found anywhere in the five-slot set" to the `ram_1E43`/`ram_1E8B` freeze
-actually ending (`rom:sub_9250`). Digging into that surfaced a
-complication worth recording on its own: `ram_1E43`/`ram_1E8B` turn out
-to be shared scratch bytes, reused by at least one other, unrelated
-per-enemy animation state (`rom:sub_915D`, dispatch nibble 7 -- an
-apparent idle-wobble routine for a completely different enemy type).
-That means a raw "these bytes stopped changing" reading can't be fully
-trusted as "this specific sequence paused" without also confirming
-which enemy's dispatch actually owns them at that moment -- the real
-remaining gap is that disambiguation, not simply an unfound instruction.
+**What this doesn't settle (yet -- see the next section):** the exact
+link from "no living captor found anywhere in the five-slot set" to the
+`ram_1E43`/`ram_1E8B` freeze actually ending.
+
+## The last piece, found without the private reference: `ram_0088` gates the release
+
+Asked directly whether this needed the project's private historical
+reference to finish -- it didn't. The same PC-tagged write-tap technique
+used for every other byte in this project settled it in two probes.
+
+**First, a wrong turn corrected immediately rather than left standing.**
+`ram_1E43`/`ram_1E8B` were read one comment ago as "shared scratch bytes
+reused by an unrelated enemy's animation" because `rom:sub_915D` also
+writes them. That was off by one level of indirection: a write-tap on
+these two addresses during the freeze window caught hits at `rom:9B3B`
+(`STA ram_1E63,Y`) and `rom:9B69` (`STA ram_1E1B,Y`) with **`Y = $28`**
+-- meaning `ram_1E43` and `ram_1E8B` aren't independent bytes at all.
+They're `ram_1E1B[$28]` and `ram_1E63[$28]`: **slot `$28`'s own X/Y
+position**, hit via a hardcoded address inside `rom:sub_9250` instead of
+the usual Y-indexed addressing. `sub_915D` firing wasn't a different
+enemy borrowing shared scratch -- it was slot `$28` itself, in a
+different phase of its own state machine.
+
+**That state machine turned out to be readable directly.** `ram_1F9F`
+is `ram_1F77[$28]` -- the same per-enemy state array used throughout
+this whole investigation, again hit via a hardcoded address. Tapping it
+across the run traced slot `$28`'s complete lifecycle after the kill: a
+transition to state `8` at frame 4,609 (the exact kill frame, `rom:CFDD`),
+holding there until state `9` at frame 4,864 (`rom:926A`), which unlocks
+the already-known climb-to-completion logic ending at frame 5,007.
+`rom:sub_9250` itself explains the wait: state `8` requires **`ram_0088`
+to reach zero** before advancing. A separate write-tap on `ram_0088`
+found it cycling `0`->`8`->`0` repeatedly throughout *ordinary* play in
+`run-02.inp` (armed via `rom:97F9` as enemies enter a diving pass,
+decremented on each kill within that pass) -- a plain "how many members
+of the current dive group are still alive" counter, nothing
+capture-specific about it on its own. And at the user-identified kill,
+frame 4,609, `ram_0088` goes from 1 to 0 in the same instant
+(`rom:CFFC`).
+
+**The complete, confirmed mechanism:** the captive can't begin its
+return until the entire dive group its captor belongs to has been
+cleared -- not "kill the boss" in isolation, but "kill whatever's left
+of the boss's group," which in this recording happened to be the boss
+itself, as the last member standing. That's why the user's kill
+identification was exactly right: the boss dying was what emptied the
+group, whether or not any other reading of the mechanic would call the
+boss special. One small gap remains open (the ~255-frame delay between
+`ram_0088` hitting zero and the state-8-to-9 transition, plausibly a
+secondary counter, `ram_1ED3`, needing its own reset from an earlier
+waiting cycle) -- but the causal chain the user asked about is closed.
 
 ## What's still open
 
@@ -732,35 +772,28 @@ remaining gap is that disambiguation, not simply an unfound instruction.
   a way that would defeat a flat frequency count -- but a real, cheap
   data point in one direction rather than an open guess in either.
 * ~~The tractor-beam capture-vs-formation-kill branch from the user's
-  second hint~~ -- **LARGELY RESOLVED, across four corrections in a
-  row** (see "The tractor beam, solved," "`run-02.inp`," and "The kill
-  really does matter"). Confirmed: `DualFighterFlag` (`ram_1E11`), set
-  at `rom:92B3` and cleared on a survivable hit at `rom:sub_D1D3`; a
-  capture always plays out in full (text, life cost, respawn -- an
-  earlier "the capture never completes" read was wrong, caught by the
-  user); and killing the enemy carrying a captive genuinely gates the
-  merge's completion, matching the user's original hint directly --
-  confirmed by watching `ram_1E43`/`ram_1E8B` freeze right at a
-  user-identified kill and resume ~260 frames later. **Not yet
-  resolved:** the specific instruction connecting that kill to the
-  freeze ending -- left open rather than guessed at a fourth time.
-* ~~What specifically reads `CapturingEnemyIndex` to gate
-  `ram_1E43`/`ram_1E8B`'s progression~~ -- **PARTIALLY ANSWERED.**
-  `rom:sub_8FAC` confirms the captive tracks a living captor, falling
-  back through a fixed four-slot list (`$06`/`$11`/`$1A`/`$23`) if the
-  original dies -- a real, solid piece of the mechanism, and it
-  explains the formation-flying directly. What it does NOT yet settle:
-  the exact instruction connecting "no living captor left anywhere" to
-  the freeze at `rom:sub_9250` actually ending -- complicated by
-  `ram_1E43`/`ram_1E8B` being shared scratch bytes also used by an
-  unrelated animation (`rom:sub_915D`), so confirming which enemy's
-  dispatch owns them at a given moment is the real next step, not
-  simply an unfound read.
+  second hint~~ -- **FULLY RESOLVED**, across five corrections in a
+  row (see "The tractor beam, solved," "`run-02.inp`," "The kill really
+  does matter," "Why the captive follows its captor," and "The last
+  piece"). `DualFighterFlag` (`ram_1E11`) is set at `rom:92B3` and
+  cleared on a survivable hit at `rom:sub_D1D3`. A capture always plays
+  out in full (text, life cost, respawn). The captive tracks a living
+  captor via a four-slot fallback list (`rom:sub_8FAC`). And the
+  captive's release is gated by `ram_0088`, a dive-group-remaining
+  counter, reaching zero (`rom:sub_9250`) -- confirmed hitting zero in
+  the same instant as the user-identified kill (frame 4,609). Asked
+  directly whether this needed the private reference source to finish;
+  it didn't -- the same write-tap technique used throughout closed it.
 * What the roughly 1,300-frame gap between `rom:sub_90DE`'s proximity
   check (frame 3,629) and the kill that matters (frame 4,609) represents
   -- whether that early check is a real precondition for the merge (e.g.
   arming a watcher) or an unrelated event that happened to touch the
   same shared bytes.
+* The ~255-frame delay between `ram_0088` reaching zero (frame 4,609)
+  and the state-8-to-9 transition actually firing (frame 4,864) --
+  plausibly `ram_1ED3` (a secondary counter checked alongside
+  `ram_0088`) needing its own reset from an earlier waiting cycle before
+  this specific check can pass; not traced further.
 * A discrepancy against this project's own manual summary (top of this
   document), worth recording rather than quietly resolving: the manual
   says shooting the flagship *while it's actively capturing* rescues the
