@@ -16,10 +16,12 @@ one command (below).
 
 [`docs/FINDINGS.md`](docs/FINDINGS.md) is the real deliverable: a narrative
 of what's been confirmed live in MAME, what's still just a hint, and what
-was actively distrusted and flagged rather than assumed. This is day one of
-the project, so read it as a starting map, not a finished one.
-[`annotations.json`](annotations.json) is the machine-readable form of the
-same knowledge.
+was actively distrusted, tested, and sometimes retracted rather than
+assumed. Every gap in the ROM closed on day one; the wave-scoring cycle
+and the full tractor-beam capture/rescue mechanic are fully solved and
+live-verified, each with the wrong turns left visible next to the
+correction rather than edited away. [`annotations.json`](annotations.json)
+is the machine-readable form of the same knowledge.
 
 **A deliberate methodology note for this project specifically:** a
 privately-held, unlicensed historical source for this game exists (the
@@ -70,9 +72,10 @@ python3 ../a7800-toolkit/tools/disasm.py "Galaga (NTSC) (Atari) (1987) (1A0A3EB3
 Live findings in this project come from replaying a MAME input
 recording (a deterministic button-press log, not video, and not
 copyrighted content) against a PC/frame-tagged Lua probe -- the same
-technique the sibling projects used throughout. `.inp` files aren't
-committed until at least one exists; add them to `.gitignore`'s
-exceptions if that changes.
+technique the sibling projects used throughout. Two recordings
+(`run-01.inp`, `run-02.inp`) are committed in this repo; most of the
+tractor-beam findings trace back to specific, cited frames in one or the
+other.
 
 ```
 ./"Record Session.command"        # play, Esc to stop -> next free run-NN.inp
