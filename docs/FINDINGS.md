@@ -101,6 +101,13 @@ found) hasn't been checked -- a first skim of the raw bytes didn't show
 the same dense `$00`/`$40`/`$AA`/`$FF` signature those did, but that
 was eyeballing a handful of rows, not a real check.
 
+*Update 2026-11-08:* three of the spans now have known contents, all by
+code read: `dat_DF50` opens with the High Score Cart parameter block,
+`dat_B944` with a DLL fragment and the difficulty names, and `dat_9F46`
+holds the starfield's one-pixel star at `$ABC0`. See "The starfield, the
+High Score Cart block, and an overflow table that runs into live
+variables".
+
 ## `run-01.inp`, and two hints from the user
 
 A long recording (962,499 bytes) is now in the repo -- per the user, an
@@ -794,6 +801,143 @@ just adopt -- it fit the byte's behavior (live-active, BCD, per-frame)
 well enough on its own. Only a direct, frame-exact check against this
 ROM's own screenshots caught that it was wrong.
 
+## The starfield, the High Score Cart block, and an overflow table that runs into live variables
+
+*Added 2026-11-08.* Three things this document never covered, found when
+the user's disassemblies were mined for techniques and then re-checked
+here against this ROM's bytes and a fresh listing. **All three are code
+reads; none has been checked live in MAME yet**, so the claims below are
+about what the code and data say, not what was seen on screen.
+
+**The starfield: two bytes of state for the whole field.** Each of the 16
+game zones' display lists starts with four star headers, written by
+`rom:B239`-`B286` at list offsets 0-15 (zone lists at `$1800` or `$2200`
+plus `$52` a zone, picked by `ram_0073`, the same lists the object writer
+fills). A header is `$C0`, `$DF` (palette 6, width 1), `$A0`+phase, and an
+X from the 128-byte table `dat_871E`, indexed by
+(`StarIndex` + star number) AND `$7F`. The phase goes up 3 a star, so a
+zone's four stars sit at phases p, p+3, p+6 and p+9.
+
+What makes this a starfield, all checked against the ROM's own bytes:
+
+* The DLL builder (`rom:B078`) gives all 16 game zones the byte `$4B`:
+  12 lines, 16-line holes.
+* Column `$C0` of pages `$A0`-`$AF` is zero except one byte, `$03` at
+  `$ABC0`: one pixel in colour 3. A header with high byte `$A0`+N puts
+  that pixel N lines below the top of a 12-line zone. The `$B0xx` pages the
+  window also reaches fall in the holes.
+* The only motion state is `StarPhase` (`ram_0086`, 0-2) and `StarIndex`
+  (`ram_008B`, 0-`$7F`). `rom:sub_B1E3` adds `StarSpeed` (`ram_0058`) to
+  the phase. Each time the phase passes 3 it drops by 3 and `StarIndex`
+  steps down one, which moves every X value one star slot (3 lines) down
+  the screen. The field scrolls without a byte of state per star.
+* The speed is set from `Wave` on every NMI at `rom:B1A7`. Below wave
+  `$0A` it alternates 0/1 (half a line a frame), from `$0A` to `$11` it is
+  1, and from `$12` on it alternates 2/1 (a line and a half).
+
+How the headers keep up, which the mining pass left unclear: the phase
+advances once on each NMI that gets past the early exits at
+`rom:B18B`-`B19A` (`ram_00E4` negative, or the `ram_00D9` guard), from
+`rom:B1DD` or `rom:B236` (the game's DLL has one DLI, on its last entry).
+The headers are only rewritten on the NMIs that rebuild the lists, which
+happens when `ram_0074` is negative (the main loop has parked at
+`rom:8098`). A late rebuild therefore jumps the stars by the lines owed.
+While the High Score Cart owns the screen (`ram_00E5` nonzero,
+`rom:B15F`-`B188`), `rom:B211` jumps to `sub_B289` past the phase step at
+`rom:B236` as well as the star writer, so the stars freeze.
+
+A second writer of `StarIndex`, `rom:sub_915D` (state 7 of the
+per-object dispatch at `rom:89B1`), steps it the other way. This document
+already says whose state that is: "The last piece, found without the
+private reference" showed by write-tap that `sub_915D` firing is slot
+`$28`'s own state machine (`ram_1F9F` = `ram_1F77[$28]`), the captured
+fighter, and `sub_915D`'s `DEC ram_1E8B` is `ram_1E63[$28]`, slot `$28`'s
+Y. State 7 is set at `rom:911B`, in the passing branch of `sub_90DE`'s
+12-pixel check (the branch that also arms `ram_0089`). It puts slot `$28`
+at Y=`$AB`, X=`PlayerX`, then raises it, steering X toward
+`CaptureOriginX`, until Y=`$85` moves it to state 6. So the stars run
+backwards while the captured ship rises, as far as the code says; how that
+looks on screen isn't checked.
+
+Not verified: what any of this looks like on screen (density, colour,
+speed). That needs a screenshot pass on a recording.
+
+**The High Score Cart call block at the start of `dat_DF50`.** The
+"single largest untraced span" (see "Every gap closed on day one") opens
+with a 15-byte parameter block. `rom:sub_B8BF` checks for the HSC
+(`$3900`=`$C6`, `$3904`=`$FE`) and copies the block to `$2200`. It patches
+`$2202` with difficulty (`ram_00E6`, 0-2) * 4 OR player (`ram_00AE`), and
+points `$2206/7` at that difficulty's padded name (`$B959` NOVICE, `$B96D`
+ADVANCED, `$B97E` EXPERT, inside `dat_B944`). It stages the score at
+`$E8`-`$EB` and returns `X=$00 Y=$22`, the block's address.
+
+Three wrappers then `JMP` into the HSC:
+
+* `rom:sub_B89A` jumps to `$3FF7`, after zeroing `$220E`.
+* `rom:sub_B8A5` jumps to `$3FFA`.
+* `rom:sub_B8AB` jumps to `$3FFD`.
+
+The verifiers' note said Galaga "reaches `$3FF7` by JMP and never checks
+the result". **The JMP part holds, but the result is checked.** The JMP is
+a tail call, so the HSC's RTS returns to the wrapper's caller. Every
+`$3FF7` call (`sub_B89A`, from attract mode at `rom:80DF`, `80F2`, `8105`)
+is tested, by `BMI` at `rom:80E2`, `80F5` and `8108`, to skip that
+difficulty's table. The `$3FFA` and `$3FFD` results are not tested.
+Attract mode's `sub_B8A5` calls (`rom:80E8`, `80FB`) are followed by
+`JSR sub_DF37`, and the `BCS` after it tests that routine's own
+SWCHA/SWCHB/INPT4-5 poll; `rom:810E` falls through to `LDA #$40`. The
+game-over submits (`rom:85E1`, `85ED`) go through `sub_B8AB` to `$3FFD`
+and are followed by loads. With no HSC present, `sub_B8BF`'s `PLA PLA RTS`
+returns from the wrapper as well. N is left set by the second PLA (the
+`$B8` of the return address), so the `$3FF7` callers' `BMI` is taken.
+
+Fields named only from their position:
+
+* `$86 $26` at the start.
+* `$00E8`, the staged score.
+* `$B944`, whose first 21 bytes read as a 7-entry DLL fragment ending in
+  buffer A's zones 5-9.
+* `$88F6`, which is `rom:sub_88F6`.
+* `$04`, the byte zeroed at `$220E`.
+
+Their meaning to the HSC is not checked against an HSC reference.
+
+**`ram_276C`: a nine-entry overflow table indexed for sixteen zones.** The
+object writer appends headers to a zone through its fill offset,
+`ram_00C5`,X, which `rom:sub_B1FD` resets to `$10`, just past the star
+headers. Once the fill has reached `$4D` (from the 17th object header in
+one zone: the fill starts at `$10` and reaches `$50` after 16 four-byte
+object headers, `rom:B31F`-`B32E`/`B372`-`B381`, so it is the 21st header
+in the list),
+the writer uses `ram_276C`,X instead (`rom:B2E6`/`B338`,
+`rom:B356`/`B38B`). That offset starts at 0, so in zones 0-8 the first
+four overflow headers replace that zone's stars. The display list stays
+valid, because its terminator still sits at the main fill. The stars are
+the overflow victims, and this answers the mining pass's open question
+about what the 16-byte head holds.
+
+The bug: `rom:B20B` clears only `$276C`-`$2774` (`LDY #$08`, zones 0-8),
+but X runs to `$0F`. For zones 9-15, `ram_276C`,X is `$2775`-`$277B`,
+which are not spare bytes. Reading every access confirms that they are
+seven of the ten formation column X bytes (`$2775`-`$277E`):
+
+* They are set to `$1C`-`$75` at `rom:9D2F`-`9D80`.
+* They are shifted together at `rom:8C6B`/`8C7F` and in pairs at
+  `rom:8DE3`-`8E39`.
+* They are read at `rom:8987`, `8CDB`, `8FEB`, `9001`, `921B`, `958E`
+  and `9B9C`.
+* All ten are swapped as a block with `ram_1DA0` at `rom:9544`-`9552`
+  (read at `9547`, written at `954E`).
+
+An overflow in one of those zones would write a header at the column's X
+used as a list offset, which runs past the zone's 82-byte list once the X
+is above `$4E`. It would then store the offset+4 back into the column
+byte. The two HUD writers stay on cleared entries. The score row uses
+`$276C` (zone 0), and the row at `rom:B497`-`B4BA` fills zone 15's list
+through `ram_00D4` but uses `$2774`, zone 8's entry, as its overflow.
+Latent, not observed: whether 17 object headers ever land in one of
+zones 9-15 isn't known.
+
 ## What's still open
 
 * Whether the value really does climb back to 1,600 around wave 50, as
@@ -847,6 +991,11 @@ ROM's own screenshots caught that it was wrong.
   sprite sheet could still be compressed or interleaved with metadata in
   a way that would defeat a flat frequency count -- but a real, cheap
   data point in one direction rather than an open guess in either.
+  *Update 2026-11-08:* `dat_9F46` holds at least one real graphic, the
+  starfield's star (`$03` at `$ABC0`, the only nonzero byte in column
+  `$C0` of pages `$A0`-`$AF`). That fits the frequency result rather than
+  overturning it: a single pixel in otherwise unrelated bytes, not a
+  sheet.
 * ~~The tractor-beam capture-vs-formation-kill branch from the user's
   second hint~~ -- **FULLY RESOLVED**, across five corrections in a
   row (see "The tractor beam, solved," "`run-02.inp`," "The kill really
@@ -887,3 +1036,14 @@ ROM's own screenshots caught that it was wrong.
   solved.** See "Cross-checking against a private reference" above for
   what it corroborated, what it suggested and this project tested
   independently and rejected, and what's left genuinely disagreeing.
+* What the starfield looks like on screen (density, colour, the three
+  speeds), and whether the stars visibly run backwards while the
+  captured fighter (slot `$28`, state 7, `rom:sub_915D`) rises. Both are
+  code reads only (see "The starfield, the High Score Cart block...").
+* Whether 17 or more object headers ever land in one of zones 9-15,
+  which is what it would take for the uncleared `ram_276C` entries to
+  corrupt the formation columns. A write-tap on `$2775`-`$277B` from
+  `rom:B338` or `rom:B38B` during a busy late wave would settle it.
+* What the High Score Cart makes of the block fields this ROM doesn't
+  patch (`$86 $26`, the `$B944` fragment, the `sub_88F6` pointer, the
+  `$04`). Needs an HSC reference or a run with the HSC loaded.
